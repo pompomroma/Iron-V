@@ -1,8 +1,12 @@
 name: Deploy to GitHub Pages
 
+# Deploys from the repo's default branch. (This repo was created empty, so
+# the game branch below became the default; "main" is kept for the future.)
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - claude/3d-web-boxing-game-joyjf2
   workflow_dispatch:
 
 permissions:

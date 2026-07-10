@@ -1,0 +1,413 @@
+import * as THREE from 'three';
+import {
+  FIGHTER, LIGHT, HEAVY, FEINT, BLOCK, DASH, STAMINA, COUNTER, ULT, ARENA,
+} from './constants.js';
+import { AnimPlayer } from './animation.js';
+import { clamp, clamp01, angleDamp } from '../engine/utils.js';
+
+const ATTACKS = { light: LIGHT, heavy: HEAVY };
+
+// ---------------------------------------------------------------------------
+// Fighter: deterministic combat entity. Reads an intent each sim tick:
+//   { moveX, moveY, light, heavy, block, dash, ult }  (light/heavy/dash/ult
+// are edge-triggered). Pushes gameplay events onto the shared bus for
+// effects / audio / HUD / AI to consume.
+// ---------------------------------------------------------------------------
+export class Fighter {
+  constructor({ id, name, avatar, events }) {
+    this.id = id;
+    this.name = name;
+    this.avatar = avatar;
+    this.anim = new AnimPlayer(avatar);
+    this.events = events;
+    this.opponent = null;
+
+    this.pos = new THREE.Vector2(0, 0);      // x, z
+    this.prevPos = new THREE.Vector2(0, 0);
+    this.vel = new THREE.Vector2(0, 0);
+    this.facing = 0;                          // yaw toward opponent
+    this.prevFacing = 0;
+
+    this.hp = FIGHTER.MAX_HP;
+    this.stamina = FIGHTER.MAX_STAMINA;
+    this.guard = FIGHTER.MAX_GUARD;
+    this.ult = 0;
+
+    this.state = 'idle';
+    this.stateT = 0;
+    this.blocking = false;
+    this.attack = null;                       // { kind, side, phase, t, hasHit, feints }
+    this.dashInfo = null;                     // { x, z, t }
+    this.dashCooldown = 0;
+    this._staminaDelay = 0;
+    this._guardDelay = 0;
+    this._jabSide = 'L';
+    this.roundsWon = 0;
+    this.moveIntent = { x: 0, y: 0 };         // exposed for anim/AI
+  }
+
+  // ---- helpers -------------------------------------------------------------
+  emit(type, data = {}) { this.events.push({ type, fighter: this, ...data }); }
+  distanceTo(o) { return this.pos.distanceTo(o.pos); }
+  get isKO() { return this.state === 'ko'; }
+  get canAct() { return this.state === 'idle'; }
+  get inWindup() { return this.state === 'attack' && this.attack.phase === 'windup'; }
+  get dashInvuln() {
+    return this.state === 'dash' && this.dashInfo && this.dashInfo.t < DASH.IFRAMES;
+  }
+
+  _spendStamina(cost) {
+    if (this.stamina < cost) { this.emit('noStamina'); return false; }
+    this.stamina -= cost;
+    this._staminaDelay = STAMINA.REGEN_DELAY;
+    return true;
+  }
+
+  // ---- round lifecycle -------------------------------------------------------
+  resetForRound(x, z, faceTowards) {
+    this.pos.set(x, z); this.prevPos.set(x, z);
+    this.vel.set(0, 0);
+    this.hp = FIGHTER.MAX_HP;
+    this.stamina = FIGHTER.MAX_STAMINA;
+    this.guard = FIGHTER.MAX_GUARD;
+    this.state = 'idle'; this.stateT = 0;
+    this.attack = null; this.dashInfo = null;
+    this.blocking = false; this.dashCooldown = 0;
+    this.facing = Math.atan2(faceTowards.x - x, faceTowards.y - z);
+    this.prevFacing = this.facing;
+    this.avatar.setGhost(0);
+    this.avatar.setGloveGlow(0);
+    this.anim.play('idle', { duration: 1, blend: 0.25 });
+  }
+
+  setVictory() {
+    if (this.state === 'ko') return;
+    this.state = 'victory'; this.stateT = 0;
+    this.vel.set(0, 0);
+    this.anim.play('victory', { duration: 2.2, blend: 0.3 });
+  }
+
+  // externally driven during the ultimate cutscene
+  setCinematic(on) {
+    if (on) { this.state = 'cinematic'; this.stateT = 0; this.vel.set(0, 0); this.blocking = false; this.attack = null; }
+    else if (this.state === 'cinematic') { this.state = 'idle'; this.stateT = 0; this.anim.play('idle', { duration: 1, blend: 0.2, restart: false }); }
+  }
+
+  // ---- main sim tick ---------------------------------------------------------
+  update(dt, intent) {
+    const opp = this.opponent;
+    this.prevPos.copy(this.pos);
+    this.prevFacing = this.facing;
+    this.stateT += dt;
+    this.dashCooldown = Math.max(0, this.dashCooldown - dt);
+    this.moveIntent.x = intent.moveX; this.moveIntent.y = intent.moveY;
+
+    // regen
+    this._staminaDelay = Math.max(0, this._staminaDelay - dt);
+    if (this._staminaDelay === 0 && this.state !== 'ko') {
+      const mult = this.blocking ? BLOCK.STAMINA_REGEN_MULT : 1;
+      this.stamina = Math.min(FIGHTER.MAX_STAMINA, this.stamina + STAMINA.REGEN * mult * dt);
+    }
+    this._guardDelay = Math.max(0, this._guardDelay - dt);
+    if (!this.blocking && this._guardDelay === 0 && this.state !== 'guardbreak') {
+      this.guard = Math.min(FIGHTER.MAX_GUARD, this.guard + BLOCK.GUARD_REGEN * dt);
+    }
+
+    // face the opponent at all times (mutual lock-on) except when down/cinematic
+    if (opp && this.state !== 'ko' && this.state !== 'cinematic') {
+      const target = Math.atan2(opp.pos.x - this.pos.x, opp.pos.y - this.pos.y);
+      this.facing = angleDamp(this.facing, target, 22, dt);
+    }
+
+    switch (this.state) {
+      case 'idle':       this._tickIdle(dt, intent, opp); break;
+      case 'attack':     this._tickAttack(dt, intent, opp); break;
+      case 'dash':       this._tickDash(dt); break;
+      case 'hitstun':    this._tickSimple(dt, this._stunDur); break;
+      case 'guardbreak': this._tickSimple(dt, BLOCK.BREAK_STUN, () => { this.guard = BLOCK.GUARD_AFTER_BREAK; }); break;
+      case 'ko': case 'cinematic': case 'victory':
+        this.vel.multiplyScalar(Math.max(0, 1 - FIGHTER.FRICTION * dt));
+        break;
+    }
+
+    // integrate
+    this.pos.addScaledVector(this.vel, dt);
+
+    // arena bounds
+    const r = this.pos.length();
+    if (r > ARENA.RADIUS) this.pos.multiplyScalar(ARENA.RADIUS / r);
+  }
+
+  _tickIdle(dt, intent, opp) {
+    this.blocking = !!intent.block;
+
+    // action priority: ult > dash > heavy > light
+    if (intent.ult && this.ult >= FIGHTER.MAX_ULT) {
+      this.emit('ultRequest');                    // main validates range & starts cinematic
+    } else if (intent.dash && this.dashCooldown === 0) {
+      if (this._startDash(intent)) return;
+    } else if (intent.heavy) {
+      if (this._startAttack('heavy')) return;
+    } else if (intent.light) {
+      if (this._startAttack('light')) return;
+    }
+
+    // movement (strafe-relative to the opponent)
+    let ax = 0, az = 0;
+    if (opp) {
+      const f = new THREE.Vector2().subVectors(opp.pos, this.pos).normalize();
+      const rgt = new THREE.Vector2(-f.y, f.x);    // character-right on XZ
+      const fwdSpeed = intent.moveY > 0 ? FIGHTER.FORWARD_SPEED : FIGHTER.BACK_SPEED;
+      const mult = this.blocking ? 0.42 : 1;
+      ax = (f.x * intent.moveY * fwdSpeed + rgt.x * intent.moveX * FIGHTER.WALK_SPEED) * mult;
+      az = (f.y * intent.moveY * fwdSpeed + rgt.y * intent.moveX * FIGHTER.WALK_SPEED) * mult;
+    }
+    const desired = new THREE.Vector2(ax, az);
+    this.vel.x = approach(this.vel.x, desired.x, FIGHTER.ACCEL * dt);
+    this.vel.y = approach(this.vel.y, desired.y, FIGHTER.ACCEL * dt);
+
+    // anim: block / idle loop
+    this.anim.play(this.blocking ? 'block' : 'idle', { duration: this.blocking ? 1.2 : 1, blend: 0.14, restart: false });
+  }
+
+  _startAttack(kind) {
+    const C = ATTACKS[kind];
+    if (!this._spendStamina(C.STAMINA)) return false;
+    const side = kind === 'light' ? this._jabSide : 'R';
+    if (kind === 'light') this._jabSide = this._jabSide === 'L' ? 'R' : 'L';
+    this.state = 'attack'; this.stateT = 0;
+    this.blocking = false;
+    this.attack = { kind, side, phase: 'windup', t: 0, hasHit: false, feints: 0, windup: C.WINDUP };
+    this._playAttackAnim(0.1);
+    this.emit('swing', { kind });
+    return true;
+  }
+
+  _playAttackAnim(blend) {
+    const a = this.attack;
+    const C = ATTACKS[a.kind];
+    const total = a.windup + C.ACTIVE + C.RECOVER;
+    const clip = a.kind === 'light' ? 'jab' + a.side : 'heavy' + a.side;
+    this.anim.play(clip, { duration: total, blend });
+  }
+
+  _tickAttack(dt, intent, opp) {
+    const a = this.attack;
+    const C = ATTACKS[a.kind];
+    a.t += dt;
+
+    // ---- feint switch: opposite button during windup cancels into the other ----
+    if (a.phase === 'windup') {
+      const wantSwitch = (a.kind === 'light' && intent.heavy) || (a.kind === 'heavy' && intent.light);
+      if (wantSwitch && this._spendStamina(FEINT.STAMINA)) {
+        const to = a.kind === 'light' ? 'heavy' : 'light';
+        const NC = ATTACKS[to];
+        a.kind = to;
+        a.side = to === 'light' ? this._jabSide : 'R';
+        if (to === 'light') this._jabSide = this._jabSide === 'L' ? 'R' : 'L';
+        a.t = 0;
+        a.feints++;
+        a.windup = NC.WINDUP * FEINT.WINDUP_SCALE;
+        a.hasHit = false;
+        this._playAttackAnim(FEINT.BLEND);        // smooth switch motion
+        this.emit('feint', { to });
+        return;
+      }
+    }
+
+    // glove charge glow through windup
+    if (a.phase === 'windup') {
+      this.avatar.setGloveGlow(clamp01(a.t / a.windup) * (a.kind === 'heavy' ? 1 : 0.55));
+    }
+
+    // lunge toward opponent during windup+active (gap closer)
+    if (opp && a.phase !== 'recover') {
+      const d = this.distanceTo(opp);
+      if (d > 1.55) {
+        const f = new THREE.Vector2().subVectors(opp.pos, this.pos).normalize();
+        this.vel.x = f.x * C.LUNGE;
+        this.vel.y = f.y * C.LUNGE;
+      } else {
+        this.vel.multiplyScalar(Math.max(0, 1 - FIGHTER.FRICTION * dt));
+      }
+    } else {
+      this.vel.multiplyScalar(Math.max(0, 1 - FIGHTER.FRICTION * dt));
+    }
+
+    // phase progression
+    if (a.phase === 'windup' && a.t >= a.windup) { a.phase = 'active'; a.t = 0; }
+    else if (a.phase === 'active') {
+      if (!a.hasHit && opp && this.distanceTo(opp) <= C.RANGE) {
+        a.hasHit = true;
+        this.avatar.setGloveGlow(0);
+        opp.receiveHit(this, C, a.kind);
+      }
+      if (a.t >= C.ACTIVE) {
+        a.phase = 'recover'; a.t = 0;
+        this.avatar.setGloveGlow(0);
+        if (!a.hasHit) this.emit('whiff', { kind: a.kind });
+      }
+    }
+    else if (a.phase === 'recover' && a.t >= C.RECOVER) {
+      this.state = 'idle'; this.stateT = 0; this.attack = null;
+      this.anim.play('idle', { duration: 1, blend: 0.16, restart: false });
+    }
+  }
+
+  _startDash(intent) {
+    if (!this._spendStamina(DASH.STAMINA)) return false;
+    // dash along movement input (relative to opponent), default backward
+    let mx = intent.moveX, my = intent.moveY;
+    if (Math.abs(mx) < 0.15 && Math.abs(my) < 0.15) { mx = 0; my = -1; }
+    const opp = this.opponent;
+    const f = opp ? new THREE.Vector2().subVectors(opp.pos, this.pos).normalize() : new THREE.Vector2(0, 1);
+    const rgt = new THREE.Vector2(-f.y, f.x);
+    const dir = new THREE.Vector2(f.x * my + rgt.x * mx, f.y * my + rgt.y * mx).normalize();
+
+    this.state = 'dash'; this.stateT = 0;
+    this.blocking = false;
+    this.dashInfo = { x: dir.x, z: dir.y, t: 0 };
+    this.dashCooldown = DASH.COOLDOWN + DASH.DURATION;
+
+    // pick the directional dash clip (relative to facing)
+    const fwdAmt = dir.dot(f), sideAmt = dir.dot(rgt);
+    let clip = 'dashB';
+    if (Math.abs(fwdAmt) >= Math.abs(sideAmt)) clip = fwdAmt > 0 ? 'dashF' : 'dashB';
+    else clip = sideAmt > 0 ? 'dashR' : 'dashL';
+    this.anim.play(clip, { duration: DASH.DURATION * 2.1, blend: 0.06 });
+    this.emit('dash', { dir: clip });
+    return true;
+  }
+
+  _tickDash(dt) {
+    const d = this.dashInfo;
+    d.t += dt;
+    const k = 1 - clamp01(d.t / DASH.DURATION);        // decaying burst
+    this.vel.x = d.x * DASH.SPEED * (0.35 + 0.65 * k);
+    this.vel.y = d.z * DASH.SPEED * (0.35 + 0.65 * k);
+    this.avatar.setGhost(d.t < DASH.IFRAMES ? 1 : 0);
+    if (d.t >= DASH.DURATION) {
+      this.avatar.setGhost(0);
+      this.state = 'idle'; this.stateT = 0; this.dashInfo = null;
+      this.anim.play('idle', { duration: 1, blend: 0.18, restart: false });
+    }
+  }
+
+  _tickSimple(dt, dur, onEnd) {
+    this.vel.multiplyScalar(Math.max(0, 1 - FIGHTER.FRICTION * 0.6 * dt));
+    if (this.stateT >= dur) {
+      onEnd && onEnd();
+      this.state = 'idle'; this.stateT = 0;
+      this.anim.play('idle', { duration: 1, blend: 0.2, restart: false });
+    }
+  }
+
+  // ---- receiving hits --------------------------------------------------------
+  receiveHit(attacker, C, kind) {
+    if (this.state === 'ko' || this.state === 'cinematic') return;
+
+    // dash i-frames
+    if (this.dashInvuln) {
+      this.emit('dodge', { attacker });
+      return;
+    }
+
+    const away = new THREE.Vector2().subVectors(this.pos, attacker.pos).normalize();
+
+    // blocked?
+    if (this.blocking && this.state === 'idle') {
+      this.guard -= C.GUARD_DAMAGE;
+      this.hp = Math.max(0.5, this.hp - C.CHIP);     // chip can't KO
+      this._guardDelay = BLOCK.GUARD_REGEN_DELAY;
+      this.vel.addScaledVector(away, C.KNOCKBACK * 0.5);
+      if (this.guard <= 0) {
+        this.guard = 0;
+        this.state = 'guardbreak'; this.stateT = 0; this.blocking = false;
+        this.anim.play('guardBreak', { duration: 0.5, blend: 0.05 });
+        // dizzy loop takes over shortly after the pop
+        this._queuedStun = true;
+        this.emit('guardbreak', { attacker });
+        attacker.ult = Math.min(FIGHTER.MAX_ULT, attacker.ult + C.ULT_GAIN_DEAL);
+      } else {
+        this.anim.play('blockHit', { duration: 0.32, blend: 0.05 });
+        this.emit('blocked', { attacker, kind });
+      }
+      return;
+    }
+
+    // clean hit
+    let dmg = C.DAMAGE;
+    const countered = this.state === 'attack' && this.attack && this.attack.phase === 'windup';
+    if (countered) dmg *= COUNTER.MULT;
+
+    this.hp -= dmg;
+    this.ult = Math.min(FIGHTER.MAX_ULT, this.ult + C.ULT_GAIN_TAKE);
+    attacker.ult = Math.min(FIGHTER.MAX_ULT, attacker.ult + C.ULT_GAIN_DEAL);
+
+    this.attack = null;
+    this.avatar.setGloveGlow(0);
+    this.vel.addScaledVector(away, C.KNOCKBACK);
+
+    if (this.hp <= 0) {
+      this.hp = 0;
+      this.state = 'ko'; this.stateT = 0; this.blocking = false;
+      this.anim.play('ko', { duration: 1.25, blend: 0.06 });
+      this.emit('ko', { attacker, countered });
+      return;
+    }
+
+    this.state = 'hitstun'; this.stateT = 0; this.blocking = false;
+    this._stunDur = C.HITSTUN * (countered ? 1.25 : 1);
+    this.anim.play(kind === 'heavy' ? 'hitHeavy' : 'hitLight', { duration: this._stunDur * 1.7, blend: 0.05 });
+    this.emit(countered ? 'counter' : 'hit', { attacker, kind, dmg });
+  }
+
+  // guardbreak pop -> dizzy loop handoff (called from sim tick by main)
+  maybeEnterStunLoop() {
+    if (this.state === 'guardbreak' && this._queuedStun && this.stateT > 0.4) {
+      this._queuedStun = false;
+      this.anim.play('stunned', { duration: 0.9, blend: 0.25 });
+    }
+  }
+
+  // ---- rendering -------------------------------------------------------------
+  // Interpolate sim states into the visual transform; advance animation clock.
+  syncVisual(alpha, rdt) {
+    const g = this.avatar.group;
+    g.position.set(
+      this.prevPos.x + (this.pos.x - this.prevPos.x) * alpha,
+      0,
+      this.prevPos.y + (this.pos.y - this.prevPos.y) * alpha
+    );
+    let df = this.facing - this.prevFacing;
+    if (df > Math.PI) df -= Math.PI * 2;
+    if (df < -Math.PI) df += Math.PI * 2;
+    g.rotation.y = this.prevFacing + df * alpha;
+
+    const speed01 = clamp01(this.vel.length() / FIGHTER.FORWARD_SPEED);
+    this.anim.update(rdt, {
+      dt: rdt,
+      moveX: this.moveIntent.x,
+      moveZ: this.moveIntent.y,
+      speed01: this.state === 'idle' ? speed01 : 0,
+    });
+  }
+}
+
+function approach(cur, target, maxDelta) {
+  const d = target - cur;
+  return Math.abs(d) <= maxDelta ? target : cur + Math.sign(d) * maxDelta;
+}
+
+// Keep the two fighters from overlapping (called once per sim tick).
+export function resolvePair(a, b) {
+  const d = new THREE.Vector2().subVectors(b.pos, a.pos);
+  let dist = d.length();
+  if (dist < 1e-4) { d.set(0, 1); dist = 1e-4; }
+  if (dist < FIGHTER.MIN_SEPARATION) {
+    const push = (FIGHTER.MIN_SEPARATION - dist) / 2;
+    d.normalize();
+    if (a.state !== 'ko') a.pos.addScaledVector(d, -push);
+    if (b.state !== 'ko') b.pos.addScaledVector(d, push);
+  }
+}

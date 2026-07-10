@@ -9,8 +9,10 @@ resolution/quality on desktops with GPUs.
 
 **https://pompomroma.github.io/Iron-V/**
 
-(Deployed automatically from `main` by GitHub Actions. If the link 404s, enable
-GitHub Pages once: repo **Settings → Pages → Source → GitHub Actions**.)
+(A GitHub Actions workflow publishes the game to the `gh-pages` branch on every
+push to the default branch, and GitHub Pages serves that branch automatically.
+If the link ever 404s, check **Settings → Pages** is set to
+**Deploy from a branch → `gh-pages` → `/ (root)`**.)
 
 Works on desktop (keyboard) and mobile (touch joystick + buttons).
 

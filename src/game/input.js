@@ -125,4 +125,10 @@ export class InputSystem {
     this._edgeQueue.splice(i, 1);
     return true;
   }
+
+  // Getting hit wipes any punches queued before the impact — you can't
+  // "attack through" a hit. Buffered dashes are kept (escape option).
+  clearAttackBuffer() {
+    this._edgeQueue = this._edgeQueue.filter((c) => c !== 'KeyK' && c !== 'KeyL' && c !== 'KeyQ');
+  }
 }

@@ -36,9 +36,11 @@ export function detectTier() {
 
   const dpr = window.devicePixelRatio || 1;
   const tiers = {
-    LOW:  { shadow: 1024, maxPR: Math.min(dpr, 1.5), minPR: 0.7,  particles: 0.5, dust: false, antialias: false },
-    MED:  { shadow: 2048, maxPR: Math.min(dpr, 2.0), minPR: 0.85, particles: 1.0, dust: true,  antialias: true },
-    HIGH: { shadow: 4096, maxPR: dpr,                minPR: 1.0,  particles: 1.6, dust: true,  antialias: true },
+    // maxPR is a ceiling, not a promise — the dynamic scaler climbs toward it
+    // whenever the GPU has headroom, so capable devices render at native DPR.
+    LOW:  { shadow: 1024, maxPR: Math.min(dpr, 1.8),  minPR: 0.7,  particles: 0.5, dust: false, antialias: false, softShadow: false, floorSeg: 64 },
+    MED:  { shadow: 2048, maxPR: Math.min(dpr, 2.75), minPR: 0.85, particles: 1.0, dust: true,  antialias: true,  softShadow: true,  floorSeg: 96 },
+    HIGH: { shadow: 4096, maxPR: dpr,                 minPR: 1.0,  particles: 1.6, dust: true,  antialias: true,  softShadow: true,  floorSeg: 96 },
   };
   return { name, isTouch, gpu, ...tiers[name] };
 }
@@ -87,13 +89,14 @@ export class DynamicResolution {
 
     this.emaFrame = this.emaFrame * 0.92 + dtMs * 0.08;
     this._holdTimer += dtMs;
-    if (this._holdTimer < 600) return;   // adjust at most ~1.6×/second
+    if (this._holdTimer < 450) return;   // adjust ~2×/second
     this._holdTimer = 0;
 
     const budget = 1000 / this.refresh;
     let next = this.scale;
-    if (this.emaFrame > budget * 1.20) next = this.scale * 0.9;         // dropping frames → shrink
-    else if (this.emaFrame < budget * 0.78) next = this.scale * 1.05;   // lots of headroom → grow
+    if (this.emaFrame > budget * 1.20) next = this.scale * 0.88;        // dropping frames → shrink fast
+    else if (this.emaFrame < budget * 0.60) next = this.scale * 1.12;   // huge headroom → climb fast
+    else if (this.emaFrame < budget * 0.80) next = this.scale * 1.05;   // headroom → grow
     next = clamp(next, this.tier.minPR, this.tier.maxPR);
 
     if (Math.abs(next - this.scale) > 0.01) {

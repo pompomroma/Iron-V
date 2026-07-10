@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { ARENA } from './constants.js';
-import { canvasTexture, mulberry32, randRange, TAU } from '../engine/utils.js';
+import { canvasTexture, mulberry32, randRange, TAU, mergeGeometries } from '../engine/utils.js';
 
 // Original noir arena: wind-rippled monochrome sand, a ring of dark shattered
 // rock slabs, a huge pale moon low on the horizon, heavy fog. High contrast so
@@ -34,7 +34,8 @@ export function buildArena(scene, tier) {
   sandTex.anisotropy = tier.name === 'LOW' ? 2 : 8;
 
   // gently duned displacement
-  const floorGeo = new THREE.PlaneGeometry(ARENA.FLOOR_SIZE, ARENA.FLOOR_SIZE, 96, 96);
+  const seg = tier.floorSeg || 96;
+  const floorGeo = new THREE.PlaneGeometry(ARENA.FLOOR_SIZE, ARENA.FLOOR_SIZE, seg, seg);
   const pos = floorGeo.attributes.position;
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), y = pos.getY(i);
@@ -55,35 +56,54 @@ export function buildArena(scene, tier) {
   floor.receiveShadow = true;
   scene.add(floor);
 
-  // --- Rock ring boundary ---------------------------------------------------
+  // --- Rock ring boundary -----------------------------------------------------
+  // All rocks are static, so their transforms are baked into merged geometry:
+  // the whole ring renders in 2 draw calls instead of ~50.
   const rockMat = new THREE.MeshStandardMaterial({ color: 0x191b1f, roughness: 0.9, metalness: 0.05, flatShading: true });
-  const rocks = new THREE.Group();
   const rand = mulberry32(42);
   const slabGeo = new THREE.DodecahedronGeometry(1, 0);
+  const bake = (px, py, pz, sx, sy, sz, rx, ry, rz) => {
+    const g = slabGeo.clone();
+    const m = new THREE.Matrix4().compose(
+      new THREE.Vector3(px, py, pz),
+      new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)),
+      new THREE.Vector3(sx, sy, sz)
+    );
+    g.applyMatrix4(m);
+    g.computeVertexNormals();
+    return g;
+  };
+  const ringGeos = [];
   for (let i = 0; i < 42; i++) {
     const a = (i / 42) * TAU + rand() * 0.12;
     const dist = ARENA.RADIUS + 3.2 + rand() * 7;
     const s = 1.2 + rand() * 3.4;
-    const m = new THREE.Mesh(slabGeo, rockMat);
-    m.position.set(Math.cos(a) * dist, s * randRange(0.15, 0.5), Math.sin(a) * dist);
-    m.scale.set(s * randRange(0.7, 1.6), s * randRange(0.5, 1.8), s * randRange(0.7, 1.6));
-    m.rotation.set(rand() * TAU, rand() * TAU, rand() * TAU);
-    m.castShadow = tier.name !== 'LOW';
-    m.receiveShadow = true;
-    rocks.add(m);
+    ringGeos.push(bake(
+      Math.cos(a) * dist, s * randRange(0.15, 0.5), Math.sin(a) * dist,
+      s * randRange(0.7, 1.6), s * randRange(0.5, 1.8), s * randRange(0.7, 1.6),
+      rand() * TAU, rand() * TAU, rand() * TAU
+    ));
   }
+  const ringRocks = new THREE.Mesh(mergeGeometries(ringGeos), rockMat);
+  ringRocks.castShadow = tier.name !== 'LOW';
+  ringRocks.receiveShadow = true;
+  scene.add(ringRocks);
+
   // a few big monoliths for silhouette drama
+  const monoGeos = [];
   for (let i = 0; i < 7; i++) {
     const a = rand() * TAU;
     const dist = ARENA.RADIUS + 10 + rand() * 14;
-    const m = new THREE.Mesh(slabGeo, rockMat);
-    m.position.set(Math.cos(a) * dist, randRange(2, 5), Math.sin(a) * dist);
-    m.scale.set(randRange(2, 4), randRange(6, 12), randRange(2, 4));
-    m.rotation.y = rand() * TAU; m.rotation.z = randRange(-0.15, 0.15);
-    m.castShadow = false; m.receiveShadow = true;
-    rocks.add(m);
+    monoGeos.push(bake(
+      Math.cos(a) * dist, randRange(2, 5), Math.sin(a) * dist,
+      randRange(2, 4), randRange(6, 12), randRange(2, 4),
+      0, rand() * TAU, randRange(-0.15, 0.15)
+    ));
   }
-  scene.add(rocks);
+  const monoliths = new THREE.Mesh(mergeGeometries(monoGeos), rockMat);
+  monoliths.receiveShadow = true;
+  scene.add(monoliths);
+  const rocks = ringRocks;
 
   // faint boundary ring on the sand so the play space reads
   const ringTex = canvasTexture(256, 256, (ctx, w, h) => {

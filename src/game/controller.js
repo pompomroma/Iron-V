@@ -45,6 +45,11 @@ export class AIController {
     const intent = { ...NEUTRAL };
     if (!opp || me.state === 'ko' || me.state === 'cinematic' || me.state === 'victory') return intent;
 
+    // getting hit wipes the AI's queued attacks too — no attacking out of a hit
+    if (me.state === 'hitstun' || me.state === 'guardbreak') {
+      this._queue = this._queue.filter((q) => q.action === 'block');
+    }
+
     const L = this.L;
     const d = me.distanceTo(opp);
 
@@ -166,9 +171,9 @@ export class AIController {
       } else if (style < L.feintProb + 0.3) {
         this._schedule(0, 'heavy');
       } else {
-        // jab string
+        // jab string (spaced to a full light-attack cycle so the chain lands)
         const n = 1 + (Math.random() * this.L.comboMax) | 0;
-        for (let i = 0; i < n; i++) this._schedule(i * randRange(0.3, 0.4), 'light');
+        for (let i = 0; i < n; i++) this._schedule(i * randRange(0.56, 0.68), 'light');
       }
       plan.type = 'pressure';
     } else if (r < L.aggression * 0.85 + 0.18) {

@@ -274,7 +274,7 @@ export class Fighter {
     let clip = 'dashB';
     if (Math.abs(fwdAmt) >= Math.abs(sideAmt)) clip = fwdAmt > 0 ? 'dashF' : 'dashB';
     else clip = sideAmt > 0 ? 'dashR' : 'dashL';
-    this.anim.play(clip, { duration: DASH.DURATION * 2.1, blend: 0.06 });
+    this.anim.play(clip, { duration: DASH.DURATION * 1.75, blend: 0.05 });
     this.emit('dash', { dir: clip });
     return true;
   }

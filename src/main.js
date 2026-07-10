@@ -12,7 +12,7 @@ import { Effects } from './game/effects.js';
 import { AudioEngine } from './game/audio.js';
 import { HUD } from './game/hud.js';
 import { UltimateCinematic } from './game/cinematic.js';
-import { PALETTES, ROUNDS, ULT, COUNTER } from './game/constants.js';
+import { PALETTES, ROUNDS, ULT, COUNTER, FEEL } from './game/constants.js';
 import { clamp01, lerp, EASE, TAU } from './engine/utils.js';
 
 // ---------------------------------------------------------------------------
@@ -24,7 +24,7 @@ const renderer = createRenderer(canvas, tier);
 const dynres = new DynamicResolution(renderer, tier);
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.08, 220);
+const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.08, 130);
 buildArena(scene, tier);
 
 const events = [];
@@ -145,7 +145,9 @@ function handleEvents() {
         audio.hit(heavy);
         effects.impact(chestOf(f), e.attacker.avatar.palette.accent, heavy);
         fightCam.addShake(heavy ? 0.5 : 0.28);
-        if (f === p1) hud.damageVignette();
+        // hit-stop: micro freeze so the impact reads crisp
+        setSlowmo(FEEL.HITSTOP_SCALE, heavy ? FEEL.HITSTOP_HEAVY : FEEL.HITSTOP_LIGHT);
+        if (f === p1) { hud.damageVignette(); input.clearAttackBuffer(); }
         if (heavy) fightCam.fovKick(-3);
         break;
       }
@@ -155,7 +157,7 @@ function handleEvents() {
         fightCam.addShake(0.55);
         hud.popupSide('COUNTER!', 'counter');
         setSlowmo(COUNTER.SLOWMO, COUNTER.SLOWMO_TIME);
-        if (f === p1) hud.damageVignette();
+        if (f === p1) { hud.damageVignette(); input.clearAttackBuffer(); }
         break;
       }
       case 'blocked': {
@@ -171,6 +173,7 @@ function handleEvents() {
         effects.shieldShatter(chestOf(f));
         hud.popupSide('GUARD BREAK!', 'break');
         fightCam.addShake(0.6);
+        if (f === p1) input.clearAttackBuffer();
         break;
       }
       case 'dodge': {
@@ -182,7 +185,11 @@ function handleEvents() {
         audio.dash();
         effects.dashGhosts(f);
         effects.groundDust(f.avatar.group.position.clone(), 3);
-        if (f === p1) fightCam.fovKick(7);
+        if (f === p1) {
+          fightCam.fovKick(7);
+          if (e.dir === 'dashL') fightCam.rollKick(-0.045);
+          else if (e.dir === 'dashR') fightCam.rollKick(0.045);
+        }
         break;
       }
       case 'noStamina': if (f === p1) audio.noStamina(); break;
@@ -416,4 +423,4 @@ document.getElementById('loading').remove();
 loop.start();
 
 // small debug/testing handle (also used by automated checks)
-window.__IRONV__ = { G, p1, p2, ai, loop, tier, dynres, startMatch };
+window.__IRONV__ = { G, p1, p2, ai, input, loop, tier, dynres, startMatch };

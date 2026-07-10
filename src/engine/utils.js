@@ -74,6 +74,26 @@ export function canvasTexture(w, h, draw, { colorSpace = true } = {}) {
   return tex;
 }
 
+// Merge non-indexed position+normal geometries (with transforms already
+// baked in) into one BufferGeometry — collapses dozens of static meshes
+// into a single draw call.
+export function mergeGeometries(geos) {
+  let total = 0;
+  for (const g of geos) total += g.attributes.position.count;
+  const pos = new Float32Array(total * 3);
+  const norm = new Float32Array(total * 3);
+  let off = 0;
+  for (const g of geos) {
+    pos.set(g.attributes.position.array, off);
+    norm.set(g.attributes.normal.array, off);
+    off += g.attributes.position.count * 3;
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  out.setAttribute('normal', new THREE.BufferAttribute(norm, 3));
+  return out;
+}
+
 // 1D value-noise (for camera shake / sway) — cheap and smooth.
 export function makeNoise1D(seed = 1) {
   const rand = mulberry32(seed);

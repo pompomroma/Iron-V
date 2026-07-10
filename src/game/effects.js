@@ -94,6 +94,7 @@ export class Effects {
       shield: [texShield(0), texShield(2), texShield(5)],
     };
     this.pool = [];               // live sprites
+    this._free = [];              // recycled sprite records (no GC churn)
     this.ghosts = [];             // dash afterimages
     this.ghostQueue = [];         // scheduled afterimage spawns
     this.shields = new Map();     // fighter -> sprite
@@ -123,19 +124,33 @@ export class Effects {
     this.scene.add(this.dust);
   }
 
-  // ---- sprite pool ----------------------------------------------------------
+  // ---- sprite pool (recycled — spawning effects never allocates mid-fight) --
   spawn({ tex, color = 0xffffff, pos, vel = null, life = 0.3, size = 1, grow = 0,
           fade = true, gravity = 0, spin = 0, opacity = 1, rotation = 0, blending = THREE.AdditiveBlending }) {
-    const mat = new THREE.SpriteMaterial({
-      map: tex, color, transparent: true, opacity,
-      blending, depthWrite: false, rotation,
-    });
-    const s = new THREE.Sprite(mat);
+    let rec = this._free.pop();
+    if (!rec) {
+      const mat = new THREE.SpriteMaterial({
+        map: tex, transparent: true, depthWrite: false,
+      });
+      rec = { s: new THREE.Sprite(mat), mat };
+    }
+    const { s, mat } = rec;
+    mat.map = tex;
+    mat.color.set(color);
+    mat.opacity = opacity;
+    mat.blending = blending;
+    mat.rotation = rotation;
     s.position.copy(pos);
     s.scale.setScalar(size);
     this.scene.add(s);
-    this.pool.push({ s, mat, vel, life, maxLife: life, grow, fade, gravity, spin, o0: opacity });
+    this.pool.push({ rec, s, mat, vel, life, maxLife: life, grow, fade, gravity, spin, o0: opacity });
     return s;
+  }
+
+  _kill(p) {
+    this.scene.remove(p.s);
+    if (this._free.length < 240) this._free.push(p.rec);
+    else p.mat.dispose();
   }
 
   update(rdt) {
@@ -144,7 +159,7 @@ export class Effects {
       const p = this.pool[i];
       p.life -= rdt;
       if (p.life <= 0) {
-        this.scene.remove(p.s); p.mat.dispose();
+        this._kill(p);
         this.pool.splice(i, 1);
         continue;
       }
@@ -321,10 +336,13 @@ export class Effects {
   }
 
   dashGhosts(fighter) {
-    this.ghostQueue.push({ fighter, t: 0 }, { fighter, t: 0.06 }, { fighter, t: 0.13 });
+    this.ghostQueue.push(
+      { fighter, t: 0 }, { fighter, t: 0.055 },
+      { fighter, t: 0.11 }, { fighter, t: 0.17 }
+    );
   }
   _spawnGhostNow(fighter) {
-    if (this.ghosts.length > 8) return;
+    if (this.ghosts.length > 10) return;
     const obj = fighter.avatar.cloneGhost(0.5);
     obj.position.copy(fighter.avatar.group.position);
     obj.rotation.copy(fighter.avatar.group.rotation);
@@ -370,7 +388,7 @@ export class Effects {
   }
 
   clearTransient() {
-    for (const p of this.pool) { this.scene.remove(p.s); p.mat.dispose(); }
+    for (const p of this.pool) this._kill(p);
     this.pool.length = 0;
     for (const g of this.ghosts) { this.scene.remove(g.obj); g.obj.userData.fadeMat.dispose(); }
     this.ghosts.length = 0;

@@ -23,9 +23,9 @@ export const FIGHTER = {
 };
 
 export const LIGHT = {
-  WINDUP: 0.15,
+  WINDUP: 0.20,          // telegraph: long enough to react-dodge, still snappy
   ACTIVE: 0.10,
-  RECOVER: 0.24,
+  RECOVER: 0.22,
   DAMAGE: 4.5,
   RANGE: 2.65,           // center-to-center at contact
   STAMINA: 8,
@@ -39,9 +39,9 @@ export const LIGHT = {
 };
 
 export const HEAVY = {
-  WINDUP: 0.34,
+  WINDUP: 0.42,          // big readable telegraph — dodge or counter it
   ACTIVE: 0.12,
-  RECOVER: 0.42,
+  RECOVER: 0.40,
   DAMAGE: 11,
   RANGE: 2.95,
   STAMINA: 16,
@@ -69,11 +69,18 @@ export const BLOCK = {
 };
 
 export const DASH = {
-  DURATION: 0.30,
+  DURATION: 0.32,
   SPEED: 13.5,           // initial burst, decays over duration
-  IFRAMES: 0.18,         // invulnerable window from dash start
+  IFRAMES: 0.22,         // invulnerable window from dash start
   STAMINA: 20,
   COOLDOWN: 0.42,
+};
+
+// game-feel: tiny hit-stop freeze on clean hits makes impacts read crisp
+export const FEEL = {
+  HITSTOP_SCALE: 0.12,
+  HITSTOP_LIGHT: 0.06,   // real seconds
+  HITSTOP_HEAVY: 0.10,
 };
 
 export const STAMINA = {

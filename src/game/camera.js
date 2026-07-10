@@ -26,6 +26,7 @@ export class FightCamera {
     this._look = new THREE.Vector3(0, 1.4, 0);
     this._trauma = 0;
     this._fovKick = 0;
+    this._rollKick = 0;
     this._noise = [makeNoise1D(1), makeNoise1D(7), makeNoise1D(13)];
     this._t = 0;
     this._roll = 0;
@@ -38,6 +39,7 @@ export class FightCamera {
 
   addShake(amount) { this._trauma = Math.min(1, this._trauma + amount); }
   fovKick(amount) { this._fovKick = amount; }
+  rollKick(amount) { this._rollKick = amount; }   // brief horizon tilt (dashes)
 
   snap() {
     // hard-set to the ideal shoulder position (round start / after cinematic)
@@ -107,8 +109,10 @@ export class FightCamera {
     const oy = n[1](t) * 0.2 * sh;
     const oroll = n[2](t) * 0.05 * sh;
 
+    this._rollKick = damp(this._rollKick, 0, 6, rdt);
+    const roll = this._roll + this._rollKick + oroll;
     cam.position.set(this._pos.x + ox, Math.max(this._pos.y + oy, 0.3), this._pos.z + ox * 0.5);
-    cam.up.set(Math.sin(this._roll + oroll), Math.cos(this._roll + oroll), 0);
+    cam.up.set(Math.sin(roll), Math.cos(roll), 0);
     cam.lookAt(this._look);
 
     // fov kicks decay

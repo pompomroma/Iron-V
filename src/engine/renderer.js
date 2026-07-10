@@ -11,7 +11,7 @@ export function createRenderer(canvas, tier) {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.12;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = tier.softShadow ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
   renderer.setSize(window.innerWidth, window.innerHeight, false);
   return renderer;
 }

@@ -15,6 +15,8 @@ export const FIGHTER = {
   BACK_SPEED: 3.4,       // retreat (S)
   ACCEL: 34,             // ground acceleration
   FRICTION: 16,
+  MAX_TURN: 8,           // lock-on facing speed cap (rad/s) — kills point-blank spin
+  LUNGE_STOP: 1.7,       // attack lunge disengages for good below this distance
 
   MAX_HP: 100,
   MAX_STAMINA: 100,

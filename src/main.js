@@ -18,6 +18,9 @@ import { clamp01, lerp, EASE, TAU } from './engine/utils.js';
 // ---------------------------------------------------------------------------
 // boot
 // ---------------------------------------------------------------------------
+const BUILD = 'v4';
+document.getElementById('build-tag').textContent = 'IRON V · build ' + BUILD;
+
 const canvas = document.getElementById('game-canvas');
 const tier = detectTier();
 const renderer = createRenderer(canvas, tier);
@@ -286,7 +289,8 @@ function update(dt) {
 let rawDt = 0.016;
 let fpsTimer = 0;
 
-function render(vdt, alpha) {
+function render(vdt, alpha, renderDt) {
+  rawDt = renderDt;
   G.stateT += rawDt;
 
   // real-time state transitions
@@ -344,7 +348,8 @@ function render(vdt, alpha) {
   fpsTimer += rawDt;
   if (G.debugHud && fpsTimer > 0.25) {
     fpsTimer = 0;
-    hud.fps(`${dynres.fps} fps · ${(dynres.scale * 100) | 0}% res · ${tier.name} · ${dynres.refresh}Hz`);
+    const gov = loop.renderTargetFps ? ` · locked ${loop.renderTargetFps}fps` : '';
+    hud.fps(`${dynres.fps} fps · ${(dynres.scale * 100) | 0}% res · ${tier.name} · ${dynres.refresh}Hz${gov}`);
   }
 
   renderer.render(scene, camera);
@@ -353,7 +358,11 @@ function render(vdt, alpha) {
 const loop = new GameLoop({
   update,
   render,
-  frameBegin: (dtMs) => { rawDt = Math.min(dtMs, 100) / 1000; dynres.frame(dtMs); },
+  frameRendered: (renderMs) => dynres.frame(renderMs),
+  governor: {
+    getRefresh: () => dynres.refresh,
+    onGovern: (fps) => { dynres.targetFps = fps; },
+  },
 });
 
 // ---------------------------------------------------------------------------

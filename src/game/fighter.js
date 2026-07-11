@@ -115,10 +115,16 @@ export class Fighter {
       this.guard = Math.min(FIGHTER.MAX_GUARD, this.guard + BLOCK.GUARD_REGEN * dt);
     }
 
-    // face the opponent at all times (mutual lock-on) except when down/cinematic
+    // face the opponent at all times (mutual lock-on) except when down/cinematic;
+    // turn rate is capped so point-blank passes rotate smoothly instead of whipping
     if (opp && this.state !== 'ko' && this.state !== 'cinematic') {
       const target = Math.atan2(opp.pos.x - this.pos.x, opp.pos.y - this.pos.y);
-      this.facing = angleDamp(this.facing, target, 22, dt);
+      const next = angleDamp(this.facing, target, 22, dt);
+      let dTurn = next - this.facing;
+      if (dTurn > Math.PI) dTurn -= Math.PI * 2;
+      if (dTurn < -Math.PI) dTurn += Math.PI * 2;
+      const maxStep = FIGHTER.MAX_TURN * dt;
+      this.facing += clamp(dTurn, -maxStep, maxStep);
     }
 
     switch (this.state) {
@@ -222,17 +228,17 @@ export class Fighter {
       this.avatar.setGloveGlow(clamp01(a.t / a.windup) * (a.kind === 'heavy' ? 1 : 0.55));
     }
 
-    // lunge toward opponent during windup+active (gap closer)
-    if (opp && a.phase !== 'recover') {
-      const d = this.distanceTo(opp);
-      if (d > 1.55) {
-        const f = new THREE.Vector2().subVectors(opp.pos, this.pos).normalize();
-        this.vel.x = f.x * C.LUNGE;
-        this.vel.y = f.y * C.LUNGE;
-      } else {
-        this.vel.multiplyScalar(Math.max(0, 1 - FIGHTER.FRICTION * dt));
-      }
+    // lunge toward opponent during windup+active (gap closer). The lunge
+    // disengages ONCE when close and never re-engages for this attack —
+    // a hard on/off distance check toggles every tick at the boundary and
+    // makes the fighters buzz against each other.
+    if (a.lunging === undefined) a.lunging = true;
+    if (opp && a.phase !== 'recover' && a.lunging && this.distanceTo(opp) > FIGHTER.LUNGE_STOP) {
+      const f = new THREE.Vector2().subVectors(opp.pos, this.pos).normalize();
+      this.vel.x = approach(this.vel.x, f.x * C.LUNGE, FIGHTER.ACCEL * 2.4 * dt);
+      this.vel.y = approach(this.vel.y, f.y * C.LUNGE, FIGHTER.ACCEL * 2.4 * dt);
     } else {
+      if (opp && this.distanceTo(opp) <= FIGHTER.LUNGE_STOP) a.lunging = false;
       this.vel.multiplyScalar(Math.max(0, 1 - FIGHTER.FRICTION * dt));
     }
 
@@ -431,14 +437,25 @@ function approach(cur, target, maxDelta) {
 }
 
 // Keep the two fighters from overlapping (called once per sim tick).
+// Soft resolution: only a fraction of the overlap is corrected per tick and
+// inward velocity along the contact axis is cancelled — instant full
+// correction fights the attack lunge and makes the pair visibly vibrate.
 export function resolvePair(a, b) {
   const d = new THREE.Vector2().subVectors(b.pos, a.pos);
   let dist = d.length();
   if (dist < 1e-4) { d.set(0, 1); dist = 1e-4; }
   if (dist < FIGHTER.MIN_SEPARATION) {
-    const push = (FIGHTER.MIN_SEPARATION - dist) / 2;
     d.normalize();
-    if (a.state !== 'ko') a.pos.addScaledVector(d, -push);
-    if (b.state !== 'ko') b.pos.addScaledVector(d, push);
+    const push = (FIGHTER.MIN_SEPARATION - dist) * 0.4 * 0.5;
+    if (a.state !== 'ko') {
+      a.pos.addScaledVector(d, -push);
+      const inward = a.vel.dot(d);                 // a moving toward b
+      if (inward > 0) a.vel.addScaledVector(d, -inward);
+    }
+    if (b.state !== 'ko') {
+      b.pos.addScaledVector(d, push);
+      const inwardB = -b.vel.dot(d);               // b moving toward a
+      if (inwardB > 0) b.vel.addScaledVector(d, inwardB);
+    }
   }
 }

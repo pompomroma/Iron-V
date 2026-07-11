@@ -611,30 +611,55 @@ function apply(pose, ctx) {
   // breathing / idle sway (always on — fighters never look frozen)
   const br = Math.sin(this._t * 2.1) * 0.024;
   const sway = Math.sin(this._t * 1.3) * 0.024;
-  // stun tremble
+  // stun tremble (added after the low-pass so it isn't filtered away)
   const tr = this.clip.tremble
     ? () => (Math.random() - 0.5) * 2 * this.clip.tremble
     : () => 0;
 
-  const final = {};
-  for (const j of ALL_JOINTS) final[j] = pose[j];
+  // Final low-pass: every joint value passes through a fast damped filter
+  // (λ=40 settles in ~75ms — punches still reach ~98% extension by contact).
+  // This erases any residual 1–2 frame discontinuity from layer composition,
+  // feint switches or sim corrections that per-clip blending can't catch.
+  if (!this._smooth) this._smooth = null;   // lazily seeded below
+  const sm = this._smooth || (this._smooth = {});
+  const k = 1 - Math.exp(-40 * dt);
 
   for (const j of ALL_JOINTS) {
     const g = J[j];
     if (!g) continue;
-    let [x, y, z] = final[j];
+    let [x, y, z] = pose[j];
     if (j === 'thighL') x += strideL;
     if (j === 'thighR') x += strideR;
     if (j === 'kneeL') x += Math.max(0, -strideL) * 0.9;
     if (j === 'kneeR') x += Math.max(0, -strideR) * 0.9;
-    if (j === 'torso') { x += leanX + br * 0.4 + tr(); z += leanZ; }
-    if (j === 'chest') { x += br + tr(); y += sway * 0.5; }
-    if (j === 'head') { x += tr() * 1.5; y += sway + tr(); }
-    g.rotation.set(x, y, z);
+    if (j === 'torso') { x += leanX + br * 0.4; z += leanZ; }
+    if (j === 'chest') { x += br; y += sway * 0.5; }
+    if (j === 'head') { y += sway; }
+
+    let s = sm[j];
+    if (!s) s = sm[j] = [x, y, z];
+    else {
+      s[0] += (x - s[0]) * k;
+      s[1] += (y - s[1]) * k;
+      s[2] += (z - s[2]) * k;
+    }
+    let fx = s[0], fy = s[1], fz = s[2];
+    if (j === 'torso') fx += tr();
+    if (j === 'chest') fx += tr();
+    if (j === 'head') { fx += tr() * 1.5; fy += tr(); }
+    g.rotation.set(fx, fy, fz);
   }
 
   const hp = pose.hipsPos;
-  J.hips.position.set(hp[0], J.hips.userData.baseY + hp[1] + bobY + br * 0.3, hp[2]);
+  const hy = J.hips.userData.baseY + hp[1] + bobY + br * 0.3;
+  let hs = sm.hipsPos;
+  if (!hs) hs = sm.hipsPos = [hp[0], hy, hp[2]];
+  else {
+    hs[0] += (hp[0] - hs[0]) * k;
+    hs[1] += (hy - hs[1]) * k;
+    hs[2] += (hp[2] - hs[2]) * k;
+  }
+  J.hips.position.set(hs[0], hs[1], hs[2]);
 
   this._applied = pose;
 }

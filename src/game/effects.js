@@ -84,6 +84,10 @@ function texShield(cracks) {
   }, { colorSpace: false });
 }
 
+// hot-path scratch vectors (per-frame paths must not allocate)
+const _world = new THREE.Vector3();
+const _scratch = new THREE.Vector3();
+
 export class Effects {
   constructor(scene, tier) {
     this.scene = scene;
@@ -255,16 +259,20 @@ export class Effects {
       heat += rdt * 90;
       const side = attacking ? f.attack.side : (Math.random() < 0.5 ? 'L' : 'R');
       const glove = f.avatar.meshes['glove' + side];
-      const world = new THREE.Vector3();
-      glove.getWorldPosition(world);
+      glove.getWorldPosition(_world);
       const phase = attacking ? f.attack.phase : 'active';
       const strong = (attacking ? f.attack.kind === 'heavy' : true);
       while (heat > 1) {
         heat -= 1;
+        _scratch.set(
+          _world.x + randRange(-0.05, 0.05),
+          _world.y + randRange(-0.05, 0.05),
+          _world.z + randRange(-0.05, 0.05)
+        );
         this.spawn({
           tex: this.tex.dot,
           color: strong ? 0xffc465 : f.avatar.palette.trail,
-          pos: world.clone().add(new THREE.Vector3(randRange(-0.05, 0.05), randRange(-0.05, 0.05), randRange(-0.05, 0.05))),
+          pos: _scratch,     // spawn copies the position — scratch reuse is safe
           life: phase === 'active' ? 0.22 : 0.13,
           size: (phase === 'active' ? randRange(0.34, 0.5) : randRange(0.16, 0.26)) * (strong ? 1.35 : 1),
         });
@@ -396,8 +404,8 @@ export class Effects {
         s.material.map = this.tex.shield[stage];
         s.material.color.setHex(frac > 0.35 ? 0xffffff : 0xffb0a2);
         const g = f.avatar.group;
-        const fwd = new THREE.Vector3(Math.sin(g.rotation.y), 0, Math.cos(g.rotation.y));
-        s.position.set(g.position.x + fwd.x * 0.72, 1.28, g.position.z + fwd.z * 0.72);
+        const fx = Math.sin(g.rotation.y), fz = Math.cos(g.rotation.y);
+        s.position.set(g.position.x + fx * 0.72, 1.28, g.position.z + fz * 0.72);
         const target = want ? 0.66 + 0.25 * frac : 0;
         s.material.opacity += (target - s.material.opacity) * Math.min(1, rdt * 18);
         if (!want && s.material.opacity < 0.03) {

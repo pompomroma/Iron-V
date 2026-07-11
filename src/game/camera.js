@@ -50,20 +50,21 @@ export class FightCamera {
   }
 
   _ideal() {
+    // scratch vectors — this runs every frame, no allocation allowed
     const p = this.player.avatar.group.position;
     const o = this.opponent.avatar.group.position;
-    const f = new THREE.Vector3(o.x - p.x, 0, o.z - p.z);
+    const f = _f.set(o.x - p.x, 0, o.z - p.z);
     const dist = Math.max(f.length(), 0.001);
     f.divideScalar(dist);
-    const right = new THREE.Vector3(f.z, 0, -f.x).negate(); // cross(f, up) = character right
     const back = BACK + clamp(dist - 3, 0, 8) * 0.09;       // subtle pullback when far apart
 
-    const pos = new THREE.Vector3(
-      p.x - f.x * back + right.x * SIDE,
+    // character right = (-f.z, 0, f.x)
+    const pos = _idealPos.set(
+      p.x - f.x * back + -f.z * SIDE,
       HEIGHT,
-      p.z - f.z * back + right.z * SIDE
+      p.z - f.z * back + f.x * SIDE
     );
-    const look = new THREE.Vector3(o.x, LOOK_HEIGHT, o.z);
+    const look = _idealLook.set(o.x, LOOK_HEIGHT, o.z);
     return { pos, look, dist };
   }
 
@@ -130,6 +131,9 @@ export class FightCamera {
   }
 }
 
+const _f = new THREE.Vector3();
+const _idealPos = new THREE.Vector3();
+const _idealLook = new THREE.Vector3();
 const _probe = new THREE.Vector3();
 function _lookProbe(cam) {
   cam.getWorldDirection(_probe);

@@ -53,6 +53,7 @@ export class DynamicResolution {
     this.scale = clamp(1.0, tier.minPR, tier.maxPR);
     this.emaFrame = 16.7;
     this.refresh = 60;          // estimated display Hz
+    this.targetFps = 0;         // set by the frame governor (0 = native refresh)
     this._samples = [];
     this._calibrated = false;
     this._holdTimer = 0;
@@ -95,7 +96,7 @@ export class DynamicResolution {
     // Hysteresis: shrink quickly when dropping frames, but only GROW after
     // sustained headroom — every setPixelRatio() reallocates the drawing
     // buffer, and oscillating around a threshold reads as periodic stutter.
-    const budget = 1000 / this.refresh;
+    const budget = 1000 / (this.targetFps || this.refresh);
     this._stable = this._stable || 0;
     let next = this.scale;
 

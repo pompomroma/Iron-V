@@ -339,6 +339,15 @@ body.letterbox #letterbox-bottom { transform: translateY(0); }
 }
 .hint-feint { margin-top: 6px; opacity: 0.65; font-style: italic; max-width: 400px; align-self: center; }
 
+#build-tag {
+  position: absolute;
+  right: max(10px, env(safe-area-inset-right));
+  bottom: max(8px, env(safe-area-inset-bottom));
+  font: 11px/1 monospace;
+  letter-spacing: 1px;
+  opacity: 0.45;
+}
+
 @media (pointer: coarse) {
   .controls-hint { display: none; }
 }

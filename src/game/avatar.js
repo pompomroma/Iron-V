@@ -262,7 +262,17 @@ export function buildBoxer(p /* palette */, variant = 0) {
       clone.userData.fadeMat = mat;
       return clone;
     },
+
+    // flat traversal-ordered node list — clone(true) preserves child order,
+    // so index-matched lists let pooled ghosts copy this avatar's exact pose
+    flatNodes(fromRoot = root) {
+      const list = [];
+      fromRoot.traverse((o) => list.push(o));
+      return list;
+    },
   };
+  // build the ghost-flash material up front (avoids a first-dash shader stall)
+  ghostMaterial(p);
   return api;
 }
 

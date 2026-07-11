@@ -1,4 +1,4 @@
-import { EASE, clamp01, lerp, smoothstep } from '../engine/utils.js';
+import { EASE, clamp01, lerp, smoothstep, damp } from '../engine/utils.js';
 import { LIGHT, HEAVY } from './constants.js';
 
 // ---------------------------------------------------------------------------
@@ -540,6 +540,7 @@ export class AnimPlayer {
     for (const j of ALL_JOINTS) this._applied[j] = [...(STANCE[j] || [0, 0, 0])];
     this._applied.hipsPos = [...STANCE.hipsPos];
     this._phase = Math.random() * 10; // locomotion stride phase
+    this._locoW = 0;                  // smoothed locomotion layer weight
     this._t = Math.random() * 10;     // breathing clock
   }
 
@@ -589,22 +590,27 @@ export class AnimPlayer {
 function apply(pose, ctx) {
   const J = this.avatar.joints;
   const speed01 = ctx.speed01 || 0;
-  const loco = this.clip.locomotion && speed01 > 0.02;
+  const dt = ctx.dt || 0.016;
+
+  // locomotion layer weight eases in/out (no snapping when actions start/end)
+  const wantLoco = this.clip.locomotion && speed01 > 0.02 ? 1 : 0;
+  this._locoW = damp(this._locoW, wantLoco, 10, dt);
+  const w = this._locoW;
 
   // locomotion stride
   let strideL = 0, strideR = 0, bobY = 0, leanX = 0, leanZ = 0;
-  this._phase += (ctx.dt || 0.016) * (4 + speed01 * 7.5);
-  if (loco) {
+  this._phase += dt * (3.6 + speed01 * 7);
+  if (w > 0.01) {
     const s = Math.sin(this._phase);
-    strideL = s * 0.5 * speed01;
-    strideR = -s * 0.5 * speed01;
-    bobY = Math.abs(Math.cos(this._phase)) * 0.045 * speed01;
-    leanX = (ctx.moveZ || 0) * 0.11;         // lean into approach/retreat
-    leanZ = -(ctx.moveX || 0) * 0.09;        // bank into strafe
+    strideL = s * 0.5 * speed01 * w;
+    strideR = -s * 0.5 * speed01 * w;
+    bobY = Math.abs(Math.cos(this._phase)) * 0.045 * speed01 * w;
+    leanX = (ctx.moveZ || 0) * 0.11 * w;     // lean into approach/retreat
+    leanZ = -(ctx.moveX || 0) * 0.09 * w;    // bank into strafe
   }
-  // breathing / idle sway (always on, subtle)
-  const br = Math.sin(this._t * 2.1) * 0.018;
-  const sway = Math.sin(this._t * 1.3) * 0.02;
+  // breathing / idle sway (always on — fighters never look frozen)
+  const br = Math.sin(this._t * 2.1) * 0.024;
+  const sway = Math.sin(this._t * 1.3) * 0.024;
   // stun tremble
   const tr = this.clip.tremble
     ? () => (Math.random() - 0.5) * 2 * this.clip.tremble

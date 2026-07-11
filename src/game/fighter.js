@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import {
-  FIGHTER, LIGHT, HEAVY, FEINT, BLOCK, DASH, STAMINA, COUNTER, ULT, ARENA,
+  FIGHTER, LIGHT, HEAVY, FEINT, BLOCK, DASH, STAMINA, COUNTER, ULT, ARENA, CHAIN_WINDOW,
 } from './constants.js';
 import { AnimPlayer } from './animation.js';
-import { clamp, clamp01, angleDamp } from '../engine/utils.js';
+import { clamp, clamp01, angleDamp, damp } from '../engine/utils.js';
 
 const ATTACKS = { light: LIGHT, heavy: HEAVY };
 
@@ -43,7 +43,9 @@ export class Fighter {
     this._guardDelay = 0;
     this._jabSide = 'L';
     this.roundsWon = 0;
-    this.moveIntent = { x: 0, y: 0 };         // exposed for anim/AI
+    this.moveIntent = { x: 0, y: 0 };         // raw intents (AI reads these)
+    this._moveSmooth = { x: 0, y: 0 };        // damped copies driving the anim lean
+    this._speedSmooth = 0;
   }
 
   // ---- helpers -------------------------------------------------------------
@@ -170,7 +172,7 @@ export class Fighter {
     this.anim.play(this.blocking ? 'block' : 'idle', { duration: this.blocking ? 1.2 : 1, blend: 0.14, restart: false });
   }
 
-  _startAttack(kind) {
+  _startAttack(kind, blend = 0.1) {
     const C = ATTACKS[kind];
     if (!this._spendStamina(C.STAMINA)) return false;
     const side = kind === 'light' ? this._jabSide : 'R';
@@ -178,7 +180,7 @@ export class Fighter {
     this.state = 'attack'; this.stateT = 0;
     this.blocking = false;
     this.attack = { kind, side, phase: 'windup', t: 0, hasHit: false, feints: 0, windup: C.WINDUP };
-    this._playAttackAnim(0.1);
+    this._playAttackAnim(blend);
     this.emit('swing', { kind });
     return true;
   }
@@ -248,9 +250,29 @@ export class Fighter {
         if (!a.hasHit) this.emit('whiff', { kind: a.kind });
       }
     }
-    else if (a.phase === 'recover' && a.t >= C.RECOVER) {
-      this.state = 'idle'; this.stateT = 0; this.attack = null;
-      this.anim.play('idle', { duration: 1, blend: 0.16, restart: false });
+    else if (a.phase === 'recover') {
+      // presses anywhere in recover are buffered, then released once the
+      // chain window opens — punch strings flow without bouncing through
+      // idle, and early presses are never dropped
+      if (intent.light) a.buffered = 'light';
+      else if (intent.heavy) a.buffered = 'heavy';
+      else if (intent.dash) a.buffered = 'dash';
+
+      if (a.buffered && a.t >= C.RECOVER * (1 - CHAIN_WINDOW)) {
+        const want = a.buffered;
+        a.buffered = null;
+        this.attack = null;
+        if (want === 'dash') {
+          if (this.dashCooldown === 0 && this._startDash(intent)) return;
+        } else if (this._startAttack(want, 0.13)) {
+          return;
+        }
+        this.attack = a;                 // couldn't act (stamina/cooldown) — keep recovering
+      }
+      if (a.t >= C.RECOVER) {
+        this.state = 'idle'; this.stateT = 0; this.attack = null;
+        this.anim.play('idle', { duration: 1, blend: 0.22, restart: false });
+      }
     }
   }
 
@@ -323,13 +345,13 @@ export class Fighter {
       if (this.guard <= 0) {
         this.guard = 0;
         this.state = 'guardbreak'; this.stateT = 0; this.blocking = false;
-        this.anim.play('guardBreak', { duration: 0.5, blend: 0.05 });
+        this.anim.play('guardBreak', { duration: 0.5, blend: 0.08 });
         // dizzy loop takes over shortly after the pop
         this._queuedStun = true;
         this.emit('guardbreak', { attacker });
         attacker.ult = Math.min(FIGHTER.MAX_ULT, attacker.ult + C.ULT_GAIN_DEAL);
       } else {
-        this.anim.play('blockHit', { duration: 0.32, blend: 0.05 });
+        this.anim.play('blockHit', { duration: 0.32, blend: 0.08 });
         this.emit('blocked', { attacker, kind });
       }
       return;
@@ -356,9 +378,14 @@ export class Fighter {
       return;
     }
 
+    // re-triggering the hit anim mid-hitstun (jab strings) uses a wider blend
+    // so back-to-back hits roll into each other instead of vibrating
+    const rehit = this.state === 'hitstun';
     this.state = 'hitstun'; this.stateT = 0; this.blocking = false;
     this._stunDur = C.HITSTUN * (countered ? 1.25 : 1);
-    this.anim.play(kind === 'heavy' ? 'hitHeavy' : 'hitLight', { duration: this._stunDur * 1.7, blend: 0.05 });
+    this.anim.play(kind === 'heavy' ? 'hitHeavy' : 'hitLight', {
+      duration: this._stunDur * 1.7, blend: rehit ? 0.12 : 0.09,
+    });
     this.emit(countered ? 'counter' : 'hit', { attacker, kind, dmg });
   }
 
@@ -384,12 +411,16 @@ export class Fighter {
     if (df < -Math.PI) df += Math.PI * 2;
     g.rotation.y = this.prevFacing + df * alpha;
 
+    // damp the locomotion drivers so leans and strides ramp instead of snap
     const speed01 = clamp01(this.vel.length() / FIGHTER.FORWARD_SPEED);
+    this._speedSmooth = damp(this._speedSmooth, speed01, 9, rdt);
+    this._moveSmooth.x = damp(this._moveSmooth.x, this.moveIntent.x, 9, rdt);
+    this._moveSmooth.y = damp(this._moveSmooth.y, this.moveIntent.y, 9, rdt);
     this.anim.update(rdt, {
       dt: rdt,
-      moveX: this.moveIntent.x,
-      moveZ: this.moveIntent.y,
-      speed01: this.state === 'idle' ? speed01 : 0,
+      moveX: this._moveSmooth.x,
+      moveZ: this._moveSmooth.y,
+      speed01: this._speedSmooth,
     });
   }
 }

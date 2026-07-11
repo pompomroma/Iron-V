@@ -12,7 +12,7 @@ import { Effects } from './game/effects.js';
 import { AudioEngine } from './game/audio.js';
 import { HUD } from './game/hud.js';
 import { UltimateCinematic } from './game/cinematic.js';
-import { PALETTES, ROUNDS, ULT, COUNTER, FEEL } from './game/constants.js';
+import { PALETTES, ROUNDS, ULT, COUNTER } from './game/constants.js';
 import { clamp01, lerp, EASE, TAU } from './engine/utils.js';
 
 // ---------------------------------------------------------------------------
@@ -45,6 +45,8 @@ fightCam.follow(p1, p2);
 fightCam.setAspect(innerWidth / innerHeight);
 
 const effects = new Effects(scene, tier);
+effects.registerFighter(p1);
+effects.registerFighter(p2);
 const audio = new AudioEngine();
 const hud = new HUD();
 const cinematic = new UltimateCinematic({ fightCam, effects, audio, hud });
@@ -144,9 +146,7 @@ function handleEvents() {
         const heavy = e.kind === 'heavy';
         audio.hit(heavy);
         effects.impact(chestOf(f), e.attacker.avatar.palette.accent, heavy);
-        fightCam.addShake(heavy ? 0.5 : 0.28);
-        // hit-stop: micro freeze so the impact reads crisp
-        setSlowmo(FEEL.HITSTOP_SCALE, heavy ? FEEL.HITSTOP_HEAVY : FEEL.HITSTOP_LIGHT);
+        fightCam.addShake(heavy ? 0.38 : 0.18);
         if (f === p1) { hud.damageVignette(); input.clearAttackBuffer(); }
         if (heavy) fightCam.fovKick(-3);
         break;
@@ -418,6 +418,33 @@ p1.resetForRound(0, -3.1, { x: 0, y: 3.1 });
 p2.resetForRound(0, 3.1, { x: 0, y: -3.1 });
 hud.showHud(false);
 hud.showTitle(true);
+
+// ---------------------------------------------------------------------------
+// Warm-up: force-compile every shader program and upload every texture once,
+// out of sight, so the first dash / hit / block of a real fight never hitches
+// on lazy compilation.
+// ---------------------------------------------------------------------------
+{
+  const deep = new THREE.Vector3(0, -60, 0);
+  effects.impact(deep.clone(), 0xffffff, true);
+  effects.blockSpark(deep.clone(), 1);
+  effects.shieldShatter(deep.clone());
+  effects.groundDust(deep.clone(), 3);
+  effects.koBurst(deep.clone());
+  effects.setAura(p1, true);
+  effects._spawnGhostNow(p1);
+  effects._spawnGhostNow(p2);
+  av1.setGhost(1); av2.setGhost(1);
+  p1.blocking = true; p2.blocking = true;
+  effects.updateShields([p1, p2], 0.016);
+  effects.update(0.016);
+  renderer.render(scene, camera);
+  renderer.render(scene, camera);
+  av1.setGhost(0); av2.setGhost(0);
+  p1.blocking = false; p2.blocking = false;
+  effects.setAura(p1, false);
+  effects.clearTransient();
+}
 
 document.getElementById('loading').remove();
 loop.start();

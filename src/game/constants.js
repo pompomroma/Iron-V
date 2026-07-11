@@ -76,12 +76,10 @@ export const DASH = {
   COOLDOWN: 0.42,
 };
 
-// game-feel: tiny hit-stop freeze on clean hits makes impacts read crisp
-export const FEEL = {
-  HITSTOP_SCALE: 0.12,
-  HITSTOP_LIGHT: 0.06,   // real seconds
-  HITSTOP_HEAVY: 0.10,
-};
+// Fraction of an attack's recover phase that can be cancelled into the next
+// attack (or a dash) — lets punch strings flow continuously instead of
+// bouncing through the idle pose between every swing.
+export const CHAIN_WINDOW = 0.45;
 
 export const STAMINA = {
   REGEN: 26,             // per second
@@ -91,7 +89,7 @@ export const STAMINA = {
 export const COUNTER = {
   MULT: 1.5,             // damage multiplier when hitting someone mid-windup
   SLOWMO: 0.35,          // brief timescale dip
-  SLOWMO_TIME: 0.28,
+  SLOWMO_TIME: 0.22,
 };
 
 export const ULT = {

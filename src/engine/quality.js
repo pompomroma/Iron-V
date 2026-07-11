@@ -89,19 +89,36 @@ export class DynamicResolution {
 
     this.emaFrame = this.emaFrame * 0.92 + dtMs * 0.08;
     this._holdTimer += dtMs;
-    if (this._holdTimer < 450) return;   // adjust ~2×/second
+    if (this._holdTimer < 450) return;   // evaluate ~2×/second
     this._holdTimer = 0;
 
+    // Hysteresis: shrink quickly when dropping frames, but only GROW after
+    // sustained headroom — every setPixelRatio() reallocates the drawing
+    // buffer, and oscillating around a threshold reads as periodic stutter.
     const budget = 1000 / this.refresh;
+    this._stable = this._stable || 0;
     let next = this.scale;
-    if (this.emaFrame > budget * 1.20) next = this.scale * 0.88;        // dropping frames → shrink fast
-    else if (this.emaFrame < budget * 0.60) next = this.scale * 1.12;   // huge headroom → climb fast
-    else if (this.emaFrame < budget * 0.80) next = this.scale * 1.05;   // headroom → grow
-    next = clamp(next, this.tier.minPR, this.tier.maxPR);
 
-    if (Math.abs(next - this.scale) > 0.01) {
+    if (this.emaFrame > budget * 1.22) {
+      next = this.scale * 0.85;                        // shrink fast
+      this._stable = 0;
+    } else if (this.emaFrame < budget * 0.78) {
+      this._stable++;
+      if (this._stable >= 5) {                         // ~2.5s of headroom
+        next = this.scale * (this.emaFrame < budget * 0.55 ? 1.15 : 1.07);
+        this._stable = 0;
+      }
+    } else {
+      this._stable = 0;                                // in the comfort band
+    }
+
+    // quantize to 0.05 steps so near-identical sizes don't thrash the buffer
+    next = clamp(Math.round(next * 20) / 20, this.tier.minPR, this.tier.maxPR);
+
+    if (Math.abs(next - this.scale) >= 0.04) {
       this.scale = next;
       this.renderer.setPixelRatio(this.scale);
+      this._holdTimer = -1000;                         // extra settle time after a change
       this.onChange && this.onChange(this.scale);
     }
   }

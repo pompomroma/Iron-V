@@ -95,13 +95,29 @@ export class Effects {
     };
     this.pool = [];               // live sprites
     this._free = [];              // recycled sprite records (no GC churn)
-    this.ghosts = [];             // dash afterimages
+    this.ghosts = [];             // live dash afterimages
     this.ghostQueue = [];         // scheduled afterimage spawns
+    this._ghostPool = new Map();  // fighter -> [{obj, srcNodes, dstNodes}]
     this.shields = new Map();     // fighter -> sprite
     this.auras = new Map();       // fighter -> {t}
     this.trailHeat = new Map();   // fighter -> emit accumulator
 
     if (tier.dust) this._makeDust();
+  }
+
+  // Pre-build pose-copy afterimages for a fighter (call once at setup).
+  // Dashes then reuse these instead of deep-cloning the avatar mid-fight.
+  registerFighter(fighter) {
+    const rigs = [];
+    for (let i = 0; i < 4; i++) {
+      const obj = fighter.avatar.cloneGhost(0.5);
+      rigs.push({
+        obj,
+        srcNodes: fighter.avatar.flatNodes(),
+        dstNodes: fighter.avatar.flatNodes(obj),
+      });
+    }
+    this._ghostPool.set(fighter, rigs);
   }
 
   _makeDust() {
@@ -182,12 +198,14 @@ export class Effects {
         this._spawnGhostNow(q.fighter);
       }
     }
-    // fading afterimages
+    // fading afterimages (returned to their fighter's pool when spent)
     for (let i = this.ghosts.length - 1; i >= 0; i--) {
       const g = this.ghosts[i];
       g.life -= rdt;
       if (g.life <= 0) {
-        this.scene.remove(g.obj); g.obj.userData.fadeMat.dispose();
+        this.scene.remove(g.obj);
+        if (g.rig) this._ghostPool.get(g.fighter).push(g.rig);
+        else g.obj.userData.fadeMat.dispose();
         this.ghosts.splice(i, 1);
       } else {
         g.obj.userData.fadeMat.opacity = 0.5 * (g.life / g.maxLife);
@@ -342,12 +360,20 @@ export class Effects {
     );
   }
   _spawnGhostNow(fighter) {
-    if (this.ghosts.length > 10) return;
-    const obj = fighter.avatar.cloneGhost(0.5);
-    obj.position.copy(fighter.avatar.group.position);
-    obj.rotation.copy(fighter.avatar.group.rotation);
+    const rigs = this._ghostPool.get(fighter);
+    if (!rigs || !rigs.length) return;         // all afterimages in flight
+    const rig = rigs.pop();
+    // copy the avatar's exact current pose into the pooled ghost
+    const { obj, srcNodes, dstNodes } = rig;
+    for (let i = 0; i < srcNodes.length; i++) {
+      const s = srcNodes[i], d = dstNodes[i];
+      d.position.copy(s.position);
+      d.quaternion.copy(s.quaternion);
+      d.scale.copy(s.scale);
+    }
+    obj.userData.fadeMat.opacity = 0.5;
     this.scene.add(obj);
-    this.ghosts.push({ obj, life: 0.24, maxLife: 0.24 });
+    this.ghosts.push({ obj, rig, fighter, life: 0.24, maxLife: 0.24 });
   }
 
   // ---- shield icon (call every render frame) -----------------------------------
@@ -390,7 +416,11 @@ export class Effects {
   clearTransient() {
     for (const p of this.pool) this._kill(p);
     this.pool.length = 0;
-    for (const g of this.ghosts) { this.scene.remove(g.obj); g.obj.userData.fadeMat.dispose(); }
+    for (const g of this.ghosts) {
+      this.scene.remove(g.obj);
+      if (g.rig) this._ghostPool.get(g.fighter).push(g.rig);
+      else g.obj.userData.fadeMat.dispose();
+    }
     this.ghosts.length = 0;
     this.ghostQueue.length = 0;
     for (const [f, s] of this.shields) { this.scene.remove(s); s.material.dispose(); }

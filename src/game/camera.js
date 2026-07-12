@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { damp, clamp, makeNoise1D } from '../engine/utils.js';
+import { damp, clamp, makeNoise1D } from '../engine/utils.js?v=5';
 
 // ---------------------------------------------------------------------------
 // Lock-on shoulder camera.
@@ -82,19 +82,21 @@ export class FightCamera {
     }
     if (!this.player) return;
 
+    // gentle damping — the lock stays centered but direction changes glide
+    // (snappier values make every opponent micro-move yank the whole view)
     const { pos, look } = this._ideal();
-    this._pos.x = damp(this._pos.x, pos.x, 11, rdt);
-    this._pos.y = damp(this._pos.y, pos.y, 11, rdt);
-    this._pos.z = damp(this._pos.z, pos.z, 11, rdt);
-    this._look.x = damp(this._look.x, look.x, 15, rdt);
-    this._look.y = damp(this._look.y, look.y, 15, rdt);
-    this._look.z = damp(this._look.z, look.z, 15, rdt);
+    this._pos.x = damp(this._pos.x, pos.x, 8.5, rdt);
+    this._pos.y = damp(this._pos.y, pos.y, 8.5, rdt);
+    this._pos.z = damp(this._pos.z, pos.z, 8.5, rdt);
+    this._look.x = damp(this._look.x, look.x, 9.5, rdt);
+    this._look.y = damp(this._look.y, look.y, 9.5, rdt);
+    this._look.z = damp(this._look.z, look.z, 9.5, rdt);
 
     // subtle roll bank while the opponent strafes across the screen
     const oppX = this.opponent.avatar.group.position.x + this.opponent.avatar.group.position.z * 0.0001;
     const lateral = this._prevOppX === null ? 0 : (oppX - this._prevOppX) / Math.max(rdt, 1e-4);
     this._prevOppX = oppX;
-    this._roll = damp(this._roll, clamp(lateral * 0.004, -0.022, 0.022), 4, rdt);
+    this._roll = damp(this._roll, clamp(lateral * 0.004, -0.022, 0.022), 3, rdt);
 
     this._apply(rdt);
   }

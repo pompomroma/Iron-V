@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import {
   FIGHTER, LIGHT, HEAVY, FEINT, BLOCK, DASH, STAMINA, COUNTER, ULT, ARENA, CHAIN_WINDOW,
-} from './constants.js';
-import { AnimPlayer } from './animation.js';
-import { clamp, clamp01, angleDamp, damp } from '../engine/utils.js';
+} from './constants.js?v=5';
+import { AnimPlayer } from './animation.js?v=5';
+import { clamp, clamp01, angleDamp, damp } from '../engine/utils.js?v=5';
 
 const ATTACKS = { light: LIGHT, heavy: HEAVY };
 
@@ -79,6 +79,7 @@ export class Fighter {
     this.prevFacing = this.facing;
     this.avatar.setGhost(0);
     this.avatar.setGloveGlow(0);
+    this.avatar.setTelegraph(0);
     this.anim.play('idle', { duration: 1, blend: 0.25 });
   }
 
@@ -91,7 +92,7 @@ export class Fighter {
 
   // externally driven during the ultimate cutscene
   setCinematic(on) {
-    if (on) { this.state = 'cinematic'; this.stateT = 0; this.vel.set(0, 0); this.blocking = false; this.attack = null; }
+    if (on) { this.state = 'cinematic'; this.stateT = 0; this.vel.set(0, 0); this.blocking = false; this.attack = null; this.avatar.setTelegraph(0); }
     else if (this.state === 'cinematic') { this.state = 'idle'; this.stateT = 0; this.anim.play('idle', { duration: 1, blend: 0.2, restart: false }); }
   }
 
@@ -223,9 +224,13 @@ export class Fighter {
       }
     }
 
-    // glove charge glow through windup
+    // glove charge glow + whole-body red telegraph through windup: the
+    // pulsing red flash is the defender's "dodge or counter NOW" cue
     if (a.phase === 'windup') {
-      this.avatar.setGloveGlow(clamp01(a.t / a.windup) * (a.kind === 'heavy' ? 1 : 0.55));
+      const u = clamp01(a.t / a.windup);
+      this.avatar.setGloveGlow(u * (a.kind === 'heavy' ? 1 : 0.55));
+      const pulse = 0.55 + 0.45 * Math.abs(Math.sin(a.t * 18));
+      this.avatar.setTelegraph(u * pulse * (a.kind === 'heavy' ? 0.5 : 0.34));
     }
 
     // lunge toward opponent during windup+active (gap closer). The lunge
@@ -243,7 +248,10 @@ export class Fighter {
     }
 
     // phase progression
-    if (a.phase === 'windup' && a.t >= a.windup) { a.phase = 'active'; a.t = 0; }
+    if (a.phase === 'windup' && a.t >= a.windup) {
+      a.phase = 'active'; a.t = 0;
+      this.avatar.setTelegraph(0);              // flash ends as the strike fires
+    }
     else if (a.phase === 'active') {
       if (!a.hasHit && opp && this.distanceTo(opp) <= C.RANGE) {
         a.hasHit = true;
@@ -374,6 +382,7 @@ export class Fighter {
 
     this.attack = null;
     this.avatar.setGloveGlow(0);
+    this.avatar.setTelegraph(0);
     this.vel.addScaledVector(away, C.KNOCKBACK);
 
     if (this.hp <= 0) {

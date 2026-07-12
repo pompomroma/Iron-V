@@ -1,5 +1,5 @@
-import { AI_LEVELS, AI_ROUND_RAMP, ULT, FIGHTER, ARENA } from './constants.js';
-import { clamp, randRange } from '../engine/utils.js';
+import { AI_LEVELS, AI_ROUND_RAMP, ULT, FIGHTER, ARENA } from './constants.js?v=5';
+import { clamp, randRange, damp } from '../engine/utils.js?v=5';
 
 // ---------------------------------------------------------------------------
 // Controllers produce one intent per sim tick:
@@ -25,6 +25,8 @@ export class AIController {
     this._lastAttackRef = null;
     this._t = 0;
     this._circleFlip = Math.random() < 0.5 ? 1 : -1;
+    this._smoothX = 0;                 // emitted movement is damped so the
+    this._smoothY = 0;                 // opponent (the camera target) glides
   }
 
   setLevel(levelName, playerRoundWins) {
@@ -119,6 +121,13 @@ export class AIController {
     // don't sit on block while far away
     if (d > 4.2) intent.block = false;
 
+    // damp the emitted movement — hard ±1 flips make the opponent (and with
+    // it the whole locked camera view) twitch
+    this._smoothX = damp(this._smoothX, intent.moveX, 6, dt);
+    this._smoothY = damp(this._smoothY, intent.moveY, 6, dt);
+    intent.moveX = this._smoothX;
+    intent.moveY = this._smoothY;
+
     return intent;
   }
 
@@ -126,7 +135,7 @@ export class AIController {
     const L = this.L;
     const lowStamina = me.stamina < 26;
     const plan = this._plan;
-    plan.until = this._t + randRange(0.5, 1.1);
+    plan.until = this._t + randRange(0.8, 1.6);
 
     if (oppHelpless && !lowStamina) {
       // free punish: rush in and slam a heavy
@@ -179,7 +188,7 @@ export class AIController {
     } else if (r < L.aggression * 0.85 + 0.18) {
       // bait: back off a touch, then step back in
       plan.type = 'retreat';
-      plan.until = this._t + randRange(0.25, 0.5);
+      plan.until = this._t + randRange(0.4, 0.7);
     } else {
       plan.type = 'circle';
       plan.dir = this._maybeFlip();
@@ -187,7 +196,7 @@ export class AIController {
   }
 
   _maybeFlip() {
-    if (Math.random() < 0.3) this._circleFlip *= -1;
+    if (Math.random() < 0.15) this._circleFlip *= -1;
     return this._circleFlip;
   }
 }

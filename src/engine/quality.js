@@ -1,4 +1,4 @@
-import { clamp } from './utils.js';
+import { clamp } from './utils.js?v=5';
 
 // ---------------------------------------------------------------------------
 // Device tier detection + real-time dynamic resolution.

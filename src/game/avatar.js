@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { roundedBoxGeometry, canvasTexture } from '../engine/utils.js';
+import { roundedBoxGeometry, canvasTexture } from '../engine/utils.js?v=5';
 
 // ---------------------------------------------------------------------------
 // Original procedural boxer: soft-beveled blocky silhouette with real detail —
@@ -217,6 +217,27 @@ export function buildBoxer(p /* palette */, variant = 0) {
 
   // ---------------------------------------------------------------------------
   const gloveMats = [M.gloveL.material, M.gloveR.material]; // shared instance
+
+  // every unique material on the body, with its authored emissive stored so
+  // the red telegraph flash can blend in and restore exactly (gloves are
+  // excluded — they keep their own charge-glow logic)
+  const flashMats = [];
+  {
+    const seen = new Set(gloveMats);
+    root.traverse((o) => {
+      if (o.isMesh && !seen.has(o.material)) {
+        seen.add(o.material);
+        flashMats.push({
+          mat: o.material,
+          baseEmissive: o.material.emissive ? o.material.emissive.clone() : null,
+          baseIntensity: o.material.emissiveIntensity ?? 1,
+        });
+      }
+    });
+  }
+  const RED = new THREE.Color(0xff2a1e);
+  const _mix = new THREE.Color();
+
   const api = {
     group: root,
     joints: J,
@@ -228,6 +249,25 @@ export function buildBoxer(p /* palette */, variant = 0) {
     setGloveGlow(intensity) {
       const e = 0.28 + intensity * 2.6;
       gloveMats.forEach((m) => (m.emissiveIntensity = e));
+    },
+
+    // whole-body red telegraph flash (0..1) during attack windups — the
+    // "dodge or counter NOW" cue. v=0 restores authored material values.
+    _telegraph: 0,
+    setTelegraph(v) {
+      if (this._ghosted) return;                    // dash flash owns materials
+      if (v === 0 && this._telegraph === 0) return;
+      this._telegraph = v;
+      for (const f of flashMats) {
+        if (!f.baseEmissive) continue;
+        if (v === 0) {
+          f.mat.emissive.copy(f.baseEmissive);
+          f.mat.emissiveIntensity = f.baseIntensity;
+        } else {
+          f.mat.emissive.copy(_mix.lerpColors(f.baseEmissive, RED, v));
+          f.mat.emissiveIntensity = f.baseIntensity + (Math.max(f.baseIntensity, 0.85) - f.baseIntensity) * v;
+        }
+      }
     },
 
     // dash "ghost" flash (0..1): body flashes toward pure white

@@ -1,5 +1,5 @@
-import { EASE, clamp01, lerp, smoothstep, damp } from '../engine/utils.js';
-import { LIGHT, HEAVY } from './constants.js';
+import { EASE, clamp01, lerp, smoothstep, damp } from '../engine/utils.js?v=5';
+import { LIGHT, HEAVY } from './constants.js?v=5';
 
 // ---------------------------------------------------------------------------
 // Pose-keyframe animation with universal crossfade blending.
@@ -79,26 +79,34 @@ function bake(keys, loop = false, opts = {}) {
 function makeJab(C) {
   const T = C.WINDUP + C.ACTIVE + C.RECOVER;
   const w = C.WINDUP / T, a = (C.WINDUP + C.ACTIVE) / T;
-  // Lead-hand (LEFT) straight punch. The windup is a two-beat telegraph:
-  // a quick coil, then a held "loaded" tension beat the defender can read
-  // and dodge — before the arm snaps out.
+  // Lead-hand (LEFT) straight punch. The windup telegraph never stops
+  // moving — a fast coil that keeps drifting deeper, then the fist rises a
+  // touch right before the strike. A frozen mid-motion pose reads as lag.
   return bake([
     key(0, {}),
-    key(w * 0.45, {                       // quick coil
-      chest: [0.1, -0.48, 0],
-      torso: [0.12, -0.24, 0],
-      hipsPos: [0, -0.07, -0.02],
-      shoulderL: [-0.78, 0.5, 0.35],
-      elbowL: [-2.38, 0, 0.15],
-      head: [-0.02, 0.28, 0],
+    key(w * 0.4, {                        // fast coil
+      chest: [0.1, -0.46, 0],
+      torso: [0.12, -0.23, 0],
+      hipsPos: [0, -0.065, -0.02],
+      shoulderL: [-0.8, 0.49, 0.34],
+      elbowL: [-2.36, 0, 0.15],
+      head: [-0.02, 0.27, 0],
     }, 'outQuart'),
-    key(w, {                              // loaded — tension creeps deeper
-      chest: [0.12, -0.56, 0],
-      torso: [0.14, -0.28, 0],
-      hipsPos: [0, -0.09, -0.03],
-      shoulderL: [-0.72, 0.54, 0.38],
-      elbowL: [-2.46, 0, 0.16],
-      head: [-0.02, 0.32, 0],
+    key(w * 0.75, {                       // still traveling deeper
+      chest: [0.115, -0.53, 0],
+      torso: [0.135, -0.265, 0],
+      hipsPos: [0, -0.082, -0.028],
+      shoulderL: [-0.74, 0.53, 0.37],
+      elbowL: [-2.44, 0, 0.16],
+      head: [-0.02, 0.31, 0],
+    }, 'inOutCubic'),
+    key(w, {                              // deepest point, fist lifts to fire
+      chest: [0.13, -0.58, 0],
+      torso: [0.15, -0.29, 0],
+      hipsPos: [0, -0.095, -0.032],
+      shoulderL: [-0.68, 0.55, 0.39],
+      elbowL: [-2.5, 0, 0.17],
+      head: [-0.02, 0.33, 0],
     }, 'outQuad'),
     key(w + (a - w) * 0.45, {             // full extension (contact)
       chest: [0.16, 0.28, 0],
@@ -129,29 +137,40 @@ function makeHeavy(C) {
   // big follow-through.
   return bake([
     key(0, {}),
-    key(w * 0.5, {                        // big wind — fast sweep back
-      chest: [0.12, -0.8, 0.07],
-      torso: [0.15, -0.38, 0],
-      hips: [0.08, -0.42, 0],
-      hipsPos: [0, -0.14, -0.05],
-      shoulderR: [-0.32, -0.86, -0.72],
-      elbowR: [-2.12, 0, -0.2],
+    key(w * 0.4, {                        // big wind — fast sweep back
+      chest: [0.12, -0.78, 0.07],
+      torso: [0.15, -0.37, 0],
+      hips: [0.08, -0.41, 0],
+      hipsPos: [0, -0.135, -0.05],
+      shoulderR: [-0.33, -0.84, -0.7],
+      elbowR: [-2.1, 0, -0.2],
       shoulderL: [-1.2, 0.45, 0.3],
       elbowL: [-2.3, 0, 0.1],
-      head: [0.05, 0.4, 0],
-      kneeL: [0.52, 0, 0],
-      kneeR: [0.48, 0, 0],
+      head: [0.05, 0.39, 0],
+      kneeL: [0.5, 0, 0],
+      kneeR: [0.46, 0, 0],
     }, 'outQuart'),
-    key(w, {                              // held at full coil — the dodge window
-      chest: [0.13, -0.92, 0.09],
-      torso: [0.17, -0.44, 0],
-      hips: [0.09, -0.48, 0],
-      hipsPos: [0, -0.18, -0.07],
-      shoulderR: [-0.26, -0.95, -0.78],
-      elbowR: [-2.2, 0, -0.2],
-      head: [0.05, 0.45, 0],
-      kneeL: [0.58, 0, 0],
-      kneeR: [0.54, 0, 0],
+    key(w * 0.75, {                       // coil keeps sinking through the dodge window
+      chest: [0.125, -0.87, 0.08],
+      torso: [0.16, -0.41, 0],
+      hips: [0.085, -0.45, 0],
+      hipsPos: [0, -0.162, -0.062],
+      shoulderR: [-0.29, -0.91, -0.75],
+      elbowR: [-2.16, 0, -0.2],
+      head: [0.05, 0.43, 0],
+      kneeL: [0.55, 0, 0],
+      kneeR: [0.51, 0, 0],
+    }, 'inOutCubic'),
+    key(w, {                              // deepest coil, shoulder loads to fire
+      chest: [0.13, -0.94, 0.09],
+      torso: [0.17, -0.45, 0],
+      hips: [0.09, -0.49, 0],
+      hipsPos: [0, -0.185, -0.072],
+      shoulderR: [-0.24, -0.97, -0.8],
+      elbowR: [-2.22, 0, -0.2],
+      head: [0.05, 0.46, 0],
+      kneeL: [0.59, 0, 0],
+      kneeR: [0.55, 0, 0],
     }, 'outQuad'),
     key(w + (a - w) * 0.5, {              // sweeping contact
       chest: [0.2, 0.75, -0.05],
@@ -183,8 +202,7 @@ const CLIP_DEFS = {
   idle: bake([key(0, {}), key(1, {})], true, { locomotion: true }),
 
   block: bake([
-    key(0, {}),
-    key(0.25, {
+    key(0, {
       hipsPos: [0, -0.1, 0],
       chest: [0.16, -0.1, 0],
       head: [0.1, 0.05, 0],
@@ -194,7 +212,29 @@ const CLIP_DEFS = {
       elbowR: [-2.55, -0.15, -0.2],
       kneeL: [0.45, 0, 0],
       kneeR: [0.42, 0, 0],
-    }, 'outCubic'),
+    }),
+    key(0.33, {                            // guard shifts — never a statue
+      hipsPos: [0, -0.115, 0.01],
+      chest: [0.18, -0.14, 0.015],
+      head: [0.12, 0.08, -0.02],
+      shoulderL: [-1.36, 0.52, 0.31],
+      elbowL: [-2.54, 0.15, 0.2],
+      shoulderR: [-1.28, -0.53, -0.27],
+      elbowR: [-2.5, -0.15, -0.2],
+      kneeL: [0.48, 0, 0],
+      kneeR: [0.44, 0, 0],
+    }, 'inOutCubic'),
+    key(0.66, {
+      hipsPos: [0, -0.105, -0.008],
+      chest: [0.15, -0.07, -0.015],
+      head: [0.09, 0.03, 0.02],
+      shoulderL: [-1.29, 0.49, 0.29],
+      elbowL: [-2.47, 0.15, 0.2],
+      shoulderR: [-1.35, -0.57, -0.29],
+      elbowR: [-2.58, -0.15, -0.2],
+      kneeL: [0.43, 0, 0],
+      kneeR: [0.45, 0, 0],
+    }, 'inOutCubic'),
     key(1, {
       hipsPos: [0, -0.1, 0],
       chest: [0.16, -0.1, 0],
@@ -205,7 +245,7 @@ const CLIP_DEFS = {
       elbowR: [-2.55, -0.15, -0.2],
       kneeL: [0.45, 0, 0],
       kneeR: [0.42, 0, 0],
-    }, 'linear'),
+    }, 'inOutCubic'),
   ], true, { locomotion: true }),
 
   blockHit: bake([

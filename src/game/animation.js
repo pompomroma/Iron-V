@@ -1,5 +1,5 @@
-import { EASE, clamp01, lerp, smoothstep, damp } from '../engine/utils.js?v=6';
-import { LIGHT, HEAVY } from './constants.js?v=6';
+import { EASE, clamp01, lerp, smoothstep, damp } from '../engine/utils.js?v=7';
+import { LIGHT, HEAVY } from './constants.js?v=7';
 
 // ---------------------------------------------------------------------------
 // Pose-keyframe animation with universal crossfade blending.
@@ -122,26 +122,42 @@ function makeJab(C) {
       head: [-0.01, 0.36, 0.07],
       neck: [0, 0.42, 0],
     }, 'outQuad'),
-    key(w + (a - w) * 0.45, {             // full extension — piston straight
+    key(w + (a - w) * 0.18, {             // KINETIC CHAIN: hips+chest fire first,
+      chest: [0.15, -0.02, -0.01],        // the fist is still loading behind them
+      torso: [0.18, 0.0, 0],
+      hips: [0.09, -0.12, 0],
+      hipsPos: [0, -0.09, 0.05],
+      shoulderL: [-0.95, 0.42, 0.24],     // arm only ~25% out
+      elbowL: [-1.6, 0, 0.08],
+      gloveL: [-0.6, 0, 0.7],
+      shoulderR: [-0.8, -0.56, -0.35],
+      elbowR: [-2.5, 0, -0.1],
+      head: [0.02, 0.22, -0.01],
+      neck: [0, 0.26, 0],
+      kneeL: [0.44, 0, 0],
+      footR: [-0.18, 0.18, 0],            // rear foot already turning
+    }, 'outQuad'),
+    key(w + (a - w) * 0.45, {             // full extension — the fist arrives last
       chest: [0.16, 0.3, -0.02],
       torso: [0.2, 0.14, 0],
       hips: [0.1, -0.02, 0],
       hipsPos: [0, -0.085, 0.1],
-      shoulderL: [-1.62, 0.18, 0.02],     // protracted, level at the shoulder
+      shoulderL: [-1.62, 0.18, 0.14],     // protracted + shoulder shrugs into it
       elbowL: [-0.04, 0, 0],
       gloveL: [-1.3, 0, 1.25],            // fist pronates through the punch
       shoulderR: [-0.76, -0.58, -0.36],   // rear guard stays home
       elbowR: [-2.55, 0, -0.1],
-      head: [0.04, 0.08, -0.04],          // chin down, eyes on target
-      neck: [0, 0.1, 0],
+      head: [0.06, 0.08, -0.06],          // chin dips behind the shrug
+      neck: [0.04, 0.1, 0],
       kneeL: [0.42, 0, 0],                // front knee gives a touch
       footR: [-0.16, 0.32, 0],            // rear foot pivots on the ball
     }, 'outQuart'),
-    key(a + 0.04, {                       // follow-through drift
+    key(a + 0.04, {                       // follow-through — elbow whip settles
       chest: [0.17, 0.34, -0.02],
-      shoulderL: [-1.52, 0.22, 0.05],
-      elbowL: [-0.26, 0, 0],
+      shoulderL: [-1.52, 0.22, 0.1],
+      elbowL: [-0.3, 0, 0.02],
       gloveL: [-1.2, 0, 1.1],
+      neck: [0.02, 0.12, 0],
       hipsPos: [0, -0.085, 0.08],
     }, 'outQuad'),
     key(a + (1 - a) * 0.42, {             // snap back to guard — faster than it went out
@@ -198,6 +214,20 @@ function makeHeavy(C) {
       kneeR: [0.6, 0, 0],
       footR: [-0.2, -0.24, 0],
     }, 'inOutCubic'),
+    key(w * 0.9, {                        // elbow slots into position to fire
+      chest: [0.12, -0.93, 0.08],
+      torso: [0.16, -0.44, 0],
+      hips: [0.088, -0.49, 0],
+      hipsPos: [-0.057, -0.185, -0.071],
+      shoulderR: [-1.36, -0.77, -0.51],
+      elbowR: [-1.44, 0, -0.16],          // dips a touch lower — the slot
+      gloveR: [-0.21, 0, -0.49],
+      head: [0.108, 0.465, 0.038],
+      neck: [0, 0.475, 0],
+      kneeL: [0.59, 0, 0],
+      kneeR: [0.635, 0, 0],
+      footR: [-0.2, -0.29, 0],
+    }, 'inOutCubic'),
     key(w, {                              // deepest — elbow horizontal, glove by the ear
       chest: [0.12, -0.95, 0.08],
       torso: [0.16, -0.45, 0],
@@ -211,6 +241,23 @@ function makeHeavy(C) {
       kneeL: [0.6, 0, 0],
       kneeR: [0.64, 0, 0],
       footR: [-0.2, -0.3, 0],
+    }, 'outQuad'),
+    key(w + (a - w) * 0.22, {             // KINETIC CHAIN: hips wrench through first,
+      chest: [0.13, 0.28, 0.0],           // the bent arm dragged behind the torso
+      torso: [0.18, 0.5, 0],
+      hips: [0.1, 0.5, 0],
+      hipsPos: [0.02, -0.15, 0.02],
+      shoulderR: [-1.45, -0.22, -0.1],    // arm lagging the chest
+      elbowR: [-1.45, 0, -0.1],           // still locked bent
+      gloveR: [-0.28, 0, -0.75],
+      shoulderL: [-1.12, 0.5, 0.33],
+      elbowL: [-2.48, 0, 0.13],
+      head: [0.09, 0.2, 0.0],
+      neck: [0, 0.24, 0],
+      kneeL: [0.5, 0, 0],
+      kneeR: [0.48, 0, 0],
+      footR: [-0.18, 0.4, 0],             // rear foot grinding through the pivot
+      footL: [-0.12, 0.1, 0],
     }, 'outQuad'),
     key(w + (a - w) * 0.5, {              // the hook lands — flat horizontal arc
       chest: [0.14, 0.8, -0.05],
@@ -229,12 +276,14 @@ function makeHeavy(C) {
       footR: [-0.15, 0.9, 0],             // rear foot pivots hard on the ball
       footL: [-0.12, 0.2, 0],
     }, 'outQuart'),
-    key(a + 0.06, {                       // wraps across the body
-      chest: [0.16, 0.95, -0.07],
+    key(a + 0.06, {                       // wraps across — rear shoulder shrugs up,
+      chest: [0.16, 0.95, -0.07],         // lead shoulder dips under it
       torso: [0.22, 0.48, 0],
-      shoulderR: [-1.42, 0.78, 0.3],
+      shoulderR: [-1.42, 0.78, 0.42],
       elbowR: [-1.6, 0, -0.05],
       gloveR: [-0.4, 0, -1.0],
+      shoulderL: [-0.95, 0.5, 0.25],
+      head: [0.08, -0.06, -0.05],
       hipsPos: [0.1, -0.135, 0.08],
       footR: [-0.15, 1.0, 0],
     }, 'outQuad'),
@@ -419,11 +468,11 @@ const CLIP_DEFS = {
   // that holds low through the slide and springs back up with overshoot.
   dashF: bake([
     key(0, {}),
-    key(0.18, {
+    key(0.18, {                            // arms pump in with the drop
       torso: [0.6, -0.1, 0], chest: [0.44, -0.15, 0], head: [-0.42, 0.14, 0],
       hipsPos: [0, -0.46, 0.14],
-      shoulderL: [-1.4, 0.44, 0.3], elbowL: [-2.5, 0, 0.15],
-      shoulderR: [-1.3, -0.54, -0.3], elbowR: [-2.6, 0, -0.15],
+      shoulderL: [-1.55, 0.44, 0.3], elbowL: [-2.62, 0, 0.15],
+      shoulderR: [-1.45, -0.54, -0.3], elbowR: [-2.7, 0, -0.15],
       thighL: [-0.62, 0.06, 0.03], thighR: [-0.5, -0.1, -0.03],
       kneeL: [1.28, 0, 0], kneeR: [1.28, 0, 0],
       footL: [-0.5, 0.06, 0], footR: [-0.55, -0.06, 0],
@@ -431,10 +480,19 @@ const CLIP_DEFS = {
     key(0.52, {
       torso: [0.52, -0.1, 0], chest: [0.38, -0.15, 0], head: [-0.36, 0.14, 0],
       hipsPos: [0, -0.38, 0.12],
+      shoulderL: [-1.42, 0.44, 0.3], elbowL: [-2.5, 0, 0.15],
+      shoulderR: [-1.32, -0.54, -0.3], elbowR: [-2.58, 0, -0.15],
       thighL: [-0.52, 0.06, 0.03], thighR: [-0.42, -0.1, -0.03],
       kneeL: [1.1, 0, 0], kneeR: [1.1, 0, 0],
       footL: [-0.42, 0.06, 0], footR: [-0.46, -0.06, 0],
     }, 'inOutCubic'),
+    key(0.82, {                            // landing catch — lead foot staggers out
+      torso: [0.22, -0.1, 0], chest: [0.16, -0.16, 0],
+      hipsPos: [0, -0.14, 0.04],
+      thighL: [-0.44, 0.06, 0.03], thighR: [0.0, -0.1, -0.03],
+      kneeL: [0.6, 0, 0], kneeR: [0.42, 0, 0],
+      footL: [-0.2, 0.06, 0], footR: [-0.28, -0.06, 0],
+    }, 'outQuad'),
     key(1, {}, 'outBack'),
   ]),
   dashB: bake([
@@ -442,8 +500,8 @@ const CLIP_DEFS = {
     key(0.18, {
       torso: [-0.42, -0.1, 0], chest: [-0.3, -0.18, 0], head: [0.18, 0.14, 0],
       hipsPos: [0, -0.42, -0.12],
-      shoulderL: [-1.5, 0.5, 0.44], elbowL: [-2.4, 0, 0.15],
-      shoulderR: [-1.4, -0.54, -0.44], elbowR: [-2.5, 0, -0.15],
+      shoulderL: [-1.6, 0.5, 0.44], elbowL: [-2.55, 0, 0.15],
+      shoulderR: [-1.5, -0.54, -0.44], elbowR: [-2.65, 0, -0.15],
       thighL: [-0.55, 0.06, 0.03], thighR: [-0.45, -0.1, -0.03],
       kneeL: [1.15, 0, 0], kneeR: [1.15, 0, 0],
       footL: [-0.45, 0.06, 0], footR: [-0.5, -0.06, 0],
@@ -718,16 +776,54 @@ function apply(pose, ctx) {
   this._locoW = damp(this._locoW, wantLoco, 10, dt);
   const w = this._locoW;
 
-  // locomotion stride
-  let strideL = 0, strideR = 0, bobY = 0, leanX = 0, leanZ = 0;
+  // ---- full walking gait ----------------------------------------------------
+  // Driven by stride phase φ, the (already damped) move direction and speed.
+  // Forward gait: thigh swing, swing-leg knee fold (stance leg near-straight),
+  // heel-to-toe foot roll, pelvis yaw + weight-shift roll, chest counter-yaw,
+  // guarded arm counter-swing, head stabilized on the opponent.
+  // Strafe gait: scissoring side-steps with body bank.
   this._phase += dt * (3.6 + speed01 * 7);
+  let thighLx = 0, thighRx = 0, thighLz = 0, thighRz = 0;
+  let kneeL = 0, kneeR = 0, footLx = 0, footRx = 0, footYaw = 0;
+  let hipsYaw = 0, hipsRoll = 0, chestYaw = 0, chestRoll = 0, headYaw = 0;
+  let shL = 0, shR = 0, elL = 0, elR = 0;
+  let bobY = 0, hipShift = 0, leanX = 0, leanZ = 0;
   if (w > 0.01) {
+    const sp = speed01;
+    const fwd = Math.max(-1, Math.min(1, ctx.moveZ || 0));
+    const side = Math.max(-1, Math.min(1, ctx.moveX || 0));
     const s = Math.sin(this._phase);
-    strideL = s * 0.5 * speed01 * w;
-    strideR = -s * 0.5 * speed01 * w;
-    bobY = Math.abs(Math.cos(this._phase)) * 0.045 * speed01 * w;
-    leanX = (ctx.moveZ || 0) * 0.11 * w;     // lean into approach/retreat
-    leanZ = -(ctx.moveX || 0) * 0.09 * w;    // bank into strafe
+    const c = Math.cos(this._phase);
+    const swing = Math.sin(this._phase - 0.5);
+
+    // legs
+    thighLx = s * 0.55 * fwd * w;
+    thighRx = -s * 0.55 * fwd * w;
+    thighLz = s * 0.26 * side * w;                       // side-step scissor
+    thighRz = -s * 0.26 * side * w;
+    kneeL = Math.pow(Math.max(0, swing), 1.2) * 0.6 * sp * w;   // swing-leg folds,
+    kneeR = Math.pow(Math.max(0, -swing), 1.2) * 0.6 * sp * w;  // stance leg stays long
+    footLx = c * 0.2 * fwd * w;                          // heel-strike → toe-off roll
+    footRx = -c * 0.2 * fwd * w;
+    footYaw = side * 0.12 * w;                           // toe-out into the strafe
+
+    // pelvis drives, torso counters, head stays on target
+    hipsYaw = s * 0.07 * fwd * w;
+    hipsRoll = s * 0.055 * sp * w;                       // weight shifts over the stance foot
+    chestYaw = -s * 0.055 * fwd * w;
+    chestRoll = -s * 0.03 * sp * w;
+    headYaw = -chestYaw * 0.6;                           // gaze pinned on the opponent
+
+    // guarded arm counter-swing (subtle — the guard never drops)
+    shL = -s * 0.12 * fwd * w;
+    shR = s * 0.12 * fwd * w;
+    elL = -s * 0.09 * fwd * w;
+    elR = s * 0.09 * fwd * w;
+
+    bobY = Math.abs(c) * 0.045 * sp * w;
+    hipShift = s * 0.02 * sp * w;                        // lateral sway with the weight
+    leanX = fwd * 0.11 * w;                              // lean into approach/retreat
+    leanZ = -side * 0.09 * w;                            // bank into strafe
   }
   // breathing / idle sway (always on — fighters never look frozen)
   const br = Math.sin(this._t * 2.1) * 0.024;
@@ -749,13 +845,20 @@ function apply(pose, ctx) {
     const g = J[j];
     if (!g) continue;
     let [x, y, z] = pose[j];
-    if (j === 'thighL') x += strideL;
-    if (j === 'thighR') x += strideR;
-    if (j === 'kneeL') x += Math.max(0, -strideL) * 0.9;
-    if (j === 'kneeR') x += Math.max(0, -strideR) * 0.9;
+    if (j === 'thighL') { x += thighLx; z += thighLz; }
+    if (j === 'thighR') { x += thighRx; z += thighRz; }
+    if (j === 'kneeL') x += kneeL;
+    if (j === 'kneeR') x += kneeR;
+    if (j === 'footL') { x += footLx; y += footYaw; }
+    if (j === 'footR') { x += footRx; y += footYaw; }
+    if (j === 'hips') { y += hipsYaw; z += hipsRoll; }
+    if (j === 'shoulderL') x += shL;
+    if (j === 'shoulderR') x += shR;
+    if (j === 'elbowL') x += elL;
+    if (j === 'elbowR') x += elR;
     if (j === 'torso') { x += leanX + br * 0.4; z += leanZ; }
-    if (j === 'chest') { x += br; y += sway * 0.5; }
-    if (j === 'head') { y += sway; }
+    if (j === 'chest') { x += br; y += sway * 0.5 + chestYaw; z += chestRoll; }
+    if (j === 'head') { y += sway + headYaw; }
 
     let s = sm[j];
     if (!s) s = sm[j] = [x, y, z];
@@ -772,11 +875,12 @@ function apply(pose, ctx) {
   }
 
   const hp = pose.hipsPos;
+  const hx = hp[0] + hipShift;
   const hy = J.hips.userData.baseY + hp[1] + bobY + br * 0.3;
   let hs = sm.hipsPos;
-  if (!hs) hs = sm.hipsPos = [hp[0], hy, hp[2]];
+  if (!hs) hs = sm.hipsPos = [hx, hy, hp[2]];
   else {
-    hs[0] += (hp[0] - hs[0]) * k;
+    hs[0] += (hx - hs[0]) * k;
     hs[1] += (hy - hs[1]) * k;
     hs[2] += (hp[2] - hs[2]) * k;
   }

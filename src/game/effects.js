@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { canvasTexture, randRange, TAU, clamp01 } from '../engine/utils.js?v=6';
+import { canvasTexture, randRange, TAU, clamp01 } from '../engine/utils.js?v=7';
 
 // ---------------------------------------------------------------------------
 // All VFX: additive sprite pools (flashes, rings, sparks, smoke), glove energy

@@ -1,5 +1,5 @@
-import { AI_LEVELS, AI_ROUND_RAMP, ULT, FIGHTER, ARENA } from './constants.js?v=5';
-import { clamp, randRange, damp } from '../engine/utils.js?v=5';
+import { AI_LEVELS, AI_ROUND_RAMP, ULT, FIGHTER, ARENA } from './constants.js?v=6';
+import { clamp, randRange, damp } from '../engine/utils.js?v=6';
 
 // ---------------------------------------------------------------------------
 // Controllers produce one intent per sim tick:

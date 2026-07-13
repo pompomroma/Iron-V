@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { canvasTexture, randRange, TAU, clamp01 } from '../engine/utils.js?v=5';
+import { canvasTexture, randRange, TAU, clamp01 } from '../engine/utils.js?v=6';
 
 // ---------------------------------------------------------------------------
 // All VFX: additive sprite pools (flashes, rings, sparks, smoke), glove energy
@@ -249,8 +249,28 @@ export class Effects {
     }
   }
 
-  // ---- glove trails (call every render frame) --------------------------------
+  // ---- glove trails + dash dust (call every render frame) --------------------
   updateTrails(fighters, rdt) {
+    // dug-in dashes spray sand from the feet for the whole slide
+    if (!this._dashDust) this._dashDust = new Map();
+    for (const f of fighters) {
+      if (f.state !== 'dash') { this._dashDust.set(f, 0); continue; }
+      let heat = (this._dashDust.get(f) || 0) + rdt * 14 * this.k;
+      const g = f.avatar.group.position;
+      while (heat > 1) {
+        heat -= 1;
+        _scratch.set(g.x + randRange(-0.3, 0.3), 0.12, g.z + randRange(-0.3, 0.3));
+        this.spawn({
+          tex: this.tex.smoke, color: 0x9a9a96,
+          pos: _scratch,
+          vel: new THREE.Vector3(randRange(-0.8, 0.8), randRange(0.5, 1.4), randRange(-0.8, 0.8)),
+          life: randRange(0.35, 0.6), size: randRange(0.5, 0.9), grow: 1.4,
+          blending: THREE.NormalBlending, opacity: 0.42, spin: randRange(-2, 2),
+        });
+      }
+      this._dashDust.set(f, heat);
+    }
+
     for (const f of fighters) {
       const attacking = f.state === 'attack';
       const flurry = f.state === 'cinematic' && f._cineTrails;

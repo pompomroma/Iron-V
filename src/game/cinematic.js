@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { ULT } from './constants.js?v=5';
-import { clamp01, lerp, EASE, TAU } from '../engine/utils.js?v=5';
+import { ULT } from './constants.js?v=6';
+import { clamp01, lerp, EASE, TAU } from '../engine/utils.js?v=6';
 
 // ---------------------------------------------------------------------------
 // Ultimate cutscene: an in-engine, letterboxed, multi-cut action sequence.

@@ -1,24 +1,24 @@
 import * as THREE from 'three';
-import { detectTier, DynamicResolution } from './engine/quality.js?v=5';
-import { createRenderer, resizeRendererToDisplay } from './engine/renderer.js?v=5';
-import { GameLoop } from './engine/loop.js?v=5';
-import { buildArena } from './game/arena.js?v=5';
-import { buildBoxer } from './game/avatar.js?v=5';
-import { Fighter, resolvePair } from './game/fighter.js?v=5';
-import { HumanController, AIController } from './game/controller.js?v=5';
-import { InputSystem } from './game/input.js?v=5';
-import { FightCamera } from './game/camera.js?v=5';
-import { Effects } from './game/effects.js?v=5';
-import { AudioEngine } from './game/audio.js?v=5';
-import { HUD } from './game/hud.js?v=5';
-import { UltimateCinematic } from './game/cinematic.js?v=5';
-import { PALETTES, ROUNDS, ULT, COUNTER } from './game/constants.js?v=5';
-import { clamp01, lerp, EASE, TAU } from './engine/utils.js?v=5';
+import { detectTier, DynamicResolution } from './engine/quality.js?v=6';
+import { createRenderer, resizeRendererToDisplay } from './engine/renderer.js?v=6';
+import { GameLoop } from './engine/loop.js?v=6';
+import { buildArena } from './game/arena.js?v=6';
+import { buildBoxer } from './game/avatar.js?v=6';
+import { Fighter, resolvePair } from './game/fighter.js?v=6';
+import { HumanController, AIController } from './game/controller.js?v=6';
+import { InputSystem } from './game/input.js?v=6';
+import { FightCamera } from './game/camera.js?v=6';
+import { Effects } from './game/effects.js?v=6';
+import { AudioEngine } from './game/audio.js?v=6';
+import { HUD } from './game/hud.js?v=6';
+import { UltimateCinematic } from './game/cinematic.js?v=6';
+import { PALETTES, ROUNDS, ULT, COUNTER } from './game/constants.js?v=6';
+import { clamp01, lerp, EASE, TAU } from './engine/utils.js?v=6';
 
 // ---------------------------------------------------------------------------
 // boot
 // ---------------------------------------------------------------------------
-const BUILD = 'v5';
+const BUILD = 'v6';
 document.getElementById('build-tag').textContent = 'IRON V · build ' + BUILD;
 
 const canvas = document.getElementById('game-canvas');

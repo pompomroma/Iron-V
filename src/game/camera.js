@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { damp, clamp, makeNoise1D } from '../engine/utils.js?v=5';
+import { damp, clamp, makeNoise1D } from '../engine/utils.js?v=6';
 
 // ---------------------------------------------------------------------------
 // Lock-on shoulder camera.

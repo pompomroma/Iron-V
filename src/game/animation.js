@@ -1,5 +1,5 @@
-import { EASE, clamp01, lerp, smoothstep, damp } from '../engine/utils.js?v=5';
-import { LIGHT, HEAVY } from './constants.js?v=5';
+import { EASE, clamp01, lerp, smoothstep, damp } from '../engine/utils.js?v=6';
+import { LIGHT, HEAVY } from './constants.js?v=6';
 
 // ---------------------------------------------------------------------------
 // Pose-keyframe animation with universal crossfade blending.
@@ -79,117 +79,175 @@ function bake(keys, loop = false, opts = {}) {
 function makeJab(C) {
   const T = C.WINDUP + C.ACTIVE + C.RECOVER;
   const w = C.WINDUP / T, a = (C.WINDUP + C.ACTIVE) / T;
-  // Lead-hand (LEFT) straight punch. The windup telegraph never stops
-  // moving — a fast coil that keeps drifting deeper, then the fist rises a
-  // touch right before the strike. A frozen mid-motion pose reads as lag.
+  // Lead-hand (LEFT) STRAIGHT JAB, boxing-detailed: elbow tucks to the ribs
+  // and the head slips behind the lead shoulder through a continuously
+  // traveling windup; the arm then pistons dead-straight at shoulder height
+  // with fist pronation, chest drive and a rear-foot ball pivot; the return
+  // snaps back to guard faster than it went out.
   return bake([
     key(0, {}),
-    key(w * 0.4, {                        // fast coil
+    key(w * 0.4, {                        // fast coil — elbow to the ribs
       chest: [0.1, -0.46, 0],
       torso: [0.12, -0.23, 0],
+      hips: [0.06, -0.32, 0],
       hipsPos: [0, -0.065, -0.02],
-      shoulderL: [-0.8, 0.49, 0.34],
-      elbowL: [-2.36, 0, 0.15],
-      head: [-0.02, 0.27, 0],
+      shoulderL: [-0.72, 0.52, 0.28],
+      elbowL: [-2.42, 0, 0.1],
+      gloveL: [-0.3, 0, 0.25],
+      shoulderR: [-0.88, -0.46, -0.32],   // rear glove pinned at the chin
+      elbowR: [-2.32, 0, -0.1],
+      head: [-0.01, 0.3, 0.05],
+      neck: [0, 0.36, 0],
+      footL: [-0.12, 0.02, 0],            // lead foot plants
     }, 'outQuart'),
     key(w * 0.75, {                       // still traveling deeper
       chest: [0.115, -0.53, 0],
       torso: [0.135, -0.265, 0],
+      hips: [0.065, -0.35, 0],
       hipsPos: [0, -0.082, -0.028],
-      shoulderL: [-0.74, 0.53, 0.37],
-      elbowL: [-2.44, 0, 0.16],
-      head: [-0.02, 0.31, 0],
+      shoulderL: [-0.66, 0.55, 0.3],
+      elbowL: [-2.5, 0, 0.11],
+      gloveL: [-0.28, 0, 0.35],
+      head: [-0.01, 0.34, 0.06],
+      neck: [0, 0.4, 0],
     }, 'inOutCubic'),
-    key(w, {                              // deepest point, fist lifts to fire
+    key(w, {                              // deepest — shoulder loads to fire
       chest: [0.13, -0.58, 0],
       torso: [0.15, -0.29, 0],
+      hips: [0.07, -0.37, 0],
       hipsPos: [0, -0.095, -0.032],
-      shoulderL: [-0.68, 0.55, 0.39],
-      elbowL: [-2.5, 0, 0.17],
-      head: [-0.02, 0.33, 0],
+      shoulderL: [-0.6, 0.57, 0.32],
+      elbowL: [-2.56, 0, 0.12],
+      gloveL: [-0.26, 0, 0.4],
+      head: [-0.01, 0.36, 0.07],
+      neck: [0, 0.42, 0],
     }, 'outQuad'),
-    key(w + (a - w) * 0.45, {             // full extension (contact)
-      chest: [0.16, 0.28, 0],
-      torso: [0.2, 0.12, 0],
-      hips: [0.1, -0.05, 0],
-      hipsPos: [0, -0.08, 0.1],
-      shoulderL: [-1.6, 0.12, 0.0],
-      elbowL: [-0.06, 0, 0],
-      gloveL: [-1.35, 0, 0],
-      shoulderR: [-0.7, -0.55, -0.35],
-      elbowR: [-2.5, 0, -0.1],
-      head: [0.0, 0.1, 0],
+    key(w + (a - w) * 0.45, {             // full extension — piston straight
+      chest: [0.16, 0.3, -0.02],
+      torso: [0.2, 0.14, 0],
+      hips: [0.1, -0.02, 0],
+      hipsPos: [0, -0.085, 0.1],
+      shoulderL: [-1.62, 0.18, 0.02],     // protracted, level at the shoulder
+      elbowL: [-0.04, 0, 0],
+      gloveL: [-1.3, 0, 1.25],            // fist pronates through the punch
+      shoulderR: [-0.76, -0.58, -0.36],   // rear guard stays home
+      elbowR: [-2.55, 0, -0.1],
+      head: [0.04, 0.08, -0.04],          // chin down, eyes on target
+      neck: [0, 0.1, 0],
+      kneeL: [0.42, 0, 0],                // front knee gives a touch
+      footR: [-0.16, 0.32, 0],            // rear foot pivots on the ball
     }, 'outQuart'),
     key(a + 0.04, {                       // follow-through drift
-      chest: [0.17, 0.32, 0],
-      shoulderL: [-1.5, 0.16, 0.04],
-      elbowL: [-0.28, 0, 0],
-      hipsPos: [0, -0.08, 0.08],
+      chest: [0.17, 0.34, -0.02],
+      shoulderL: [-1.52, 0.22, 0.05],
+      elbowL: [-0.26, 0, 0],
+      gloveL: [-1.2, 0, 1.1],
+      hipsPos: [0, -0.085, 0.08],
     }, 'outQuad'),
-    key(1, {}, 'inOutCubic'),             // recover to stance
+    key(a + (1 - a) * 0.42, {             // snap back to guard — faster than it went out
+      chest: [0.1, -0.1, 0],
+      torso: [0.11, -0.08, 0],
+      shoulderL: [-1.0, 0.36, 0.3],
+      elbowL: [-1.9, 0, 0.12],
+      gloveL: [-0.3, 0, 0.2],
+      footR: [-0.19, 0.06, 0],
+      hipsPos: [0, -0.06, 0.02],
+    }, 'outQuart'),
+    key(1, {}, 'inOutCubic'),             // settle into stance
   ]);
 }
 
 function makeHeavy(C) {
   const T = C.WINDUP + C.ACTIVE + C.RECOVER;
   const w = C.WINDUP / T, a = (C.WINDUP + C.ACTIVE) / T;
-  // Rear-hand (RIGHT) overhand haymaker: deep coil + crouch, sweeping arc,
-  // big follow-through.
+  // Rear-hand (RIGHT) INTENSE HOOK: weight loads onto the rear leg while the
+  // torso coils away and the elbow rises to horizontal (upper arm level,
+  // elbow locked near 90°, glove by the ear); the strike is a flat explosive
+  // arc driven by hips → chest → shoulder with a hard rear-foot pivot, the
+  // arm staying bent all the way through; the follow-through wraps across
+  // the body before recoiling to guard.
   return bake([
     key(0, {}),
-    key(w * 0.4, {                        // big wind — fast sweep back
-      chest: [0.12, -0.78, 0.07],
-      torso: [0.15, -0.37, 0],
-      hips: [0.08, -0.41, 0],
-      hipsPos: [0, -0.135, -0.05],
-      shoulderR: [-0.33, -0.84, -0.7],
-      elbowR: [-2.1, 0, -0.2],
-      shoulderL: [-1.2, 0.45, 0.3],
-      elbowL: [-2.3, 0, 0.1],
-      head: [0.05, 0.39, 0],
+    key(w * 0.4, {                        // coil away, weight sinking back
+      chest: [0.1, -0.72, 0.06],
+      torso: [0.13, -0.34, 0],
+      hips: [0.07, -0.38, 0],
+      hipsPos: [-0.03, -0.14, -0.06],
+      shoulderR: [-1.08, -0.62, -0.45],   // elbow starts rising
+      elbowR: [-1.72, 0, -0.15],
+      gloveR: [-0.3, 0, -0.35],
+      shoulderL: [-1.24, 0.5, 0.3],       // lead glove glued to the chin
+      elbowL: [-2.45, 0, 0.12],
+      head: [0.08, 0.38, 0.02],
+      neck: [0, 0.42, 0],
       kneeL: [0.5, 0, 0],
-      kneeR: [0.46, 0, 0],
-    }, 'outQuart'),
-    key(w * 0.75, {                       // coil keeps sinking through the dodge window
-      chest: [0.125, -0.87, 0.08],
-      torso: [0.16, -0.41, 0],
-      hips: [0.085, -0.45, 0],
-      hipsPos: [0, -0.162, -0.062],
-      shoulderR: [-0.29, -0.91, -0.75],
-      elbowR: [-2.16, 0, -0.2],
-      head: [0.05, 0.43, 0],
-      kneeL: [0.55, 0, 0],
-      kneeR: [0.51, 0, 0],
-    }, 'inOutCubic'),
-    key(w, {                              // deepest coil, shoulder loads to fire
-      chest: [0.13, -0.94, 0.09],
-      torso: [0.17, -0.45, 0],
-      hips: [0.09, -0.49, 0],
-      hipsPos: [0, -0.185, -0.072],
-      shoulderR: [-0.24, -0.97, -0.8],
-      elbowR: [-2.22, 0, -0.2],
-      head: [0.05, 0.46, 0],
-      kneeL: [0.59, 0, 0],
       kneeR: [0.55, 0, 0],
-    }, 'outQuad'),
-    key(w + (a - w) * 0.5, {              // sweeping contact
-      chest: [0.2, 0.75, -0.05],
-      torso: [0.26, 0.4, 0],
-      hips: [0.12, 0.15, 0],
-      hipsPos: [0, -0.1, 0.14],
-      shoulderR: [-1.5, 0.3, 0.35],
-      elbowR: [-0.15, 0, 0],
-      gloveR: [-1.2, 0, 0],
-      shoulderL: [-0.9, 0.5, 0.4],
-      elbowL: [-2.45, 0, 0.15],
-      head: [0.05, -0.05, 0],
+      footR: [-0.2, -0.16, 0],
     }, 'outQuart'),
-    key(a + 0.06, {                       // follow-through
-      chest: [0.24, 0.9, -0.08],
-      shoulderR: [-1.15, 0.55, 0.5],
-      elbowR: [-0.5, 0, 0],
-      hipsPos: [0, -0.12, 0.12],
+    key(w * 0.75, {                       // still loading through the dodge window
+      chest: [0.11, -0.86, 0.07],
+      torso: [0.15, -0.41, 0],
+      hips: [0.08, -0.46, 0],
+      hipsPos: [-0.045, -0.17, -0.068],
+      shoulderR: [-1.24, -0.72, -0.5],
+      elbowR: [-1.58, 0, -0.16],
+      gloveR: [-0.24, 0, -0.45],
+      head: [0.1, 0.44, 0.03],
+      neck: [0, 0.46, 0],
+      kneeL: [0.56, 0, 0],
+      kneeR: [0.6, 0, 0],
+      footR: [-0.2, -0.24, 0],
+    }, 'inOutCubic'),
+    key(w, {                              // deepest — elbow horizontal, glove by the ear
+      chest: [0.12, -0.95, 0.08],
+      torso: [0.16, -0.45, 0],
+      hips: [0.09, -0.5, 0],
+      hipsPos: [-0.06, -0.19, -0.072],
+      shoulderR: [-1.38, -0.78, -0.52],
+      elbowR: [-1.5, 0, -0.16],
+      gloveR: [-0.2, 0, -0.5],
+      head: [0.11, 0.47, 0.04],
+      neck: [0, 0.48, 0],
+      kneeL: [0.6, 0, 0],
+      kneeR: [0.64, 0, 0],
+      footR: [-0.2, -0.3, 0],
     }, 'outQuad'),
+    key(w + (a - w) * 0.5, {              // the hook lands — flat horizontal arc
+      chest: [0.14, 0.8, -0.05],
+      torso: [0.2, 0.42, 0],
+      hips: [0.1, 0.55, 0],
+      hipsPos: [0.08, -0.125, 0.1],       // weight slams across to the lead side
+      shoulderR: [-1.5, 0.55, 0.25],      // upper arm stays level through the swing
+      elbowR: [-1.35, 0, -0.05],          // ARM STAYS BENT — that's the hook
+      gloveR: [-0.35, 0, -1.1],           // palm rolls down
+      shoulderL: [-1.05, 0.52, 0.35],
+      elbowL: [-2.5, 0, 0.14],
+      head: [0.06, -0.02, -0.04],         // chin tucked behind the lead shoulder
+      neck: [0, 0.04, 0],
+      kneeL: [0.46, 0, 0],
+      kneeR: [0.36, 0, 0],
+      footR: [-0.15, 0.9, 0],             // rear foot pivots hard on the ball
+      footL: [-0.12, 0.2, 0],
+    }, 'outQuart'),
+    key(a + 0.06, {                       // wraps across the body
+      chest: [0.16, 0.95, -0.07],
+      torso: [0.22, 0.48, 0],
+      shoulderR: [-1.42, 0.78, 0.3],
+      elbowR: [-1.6, 0, -0.05],
+      gloveR: [-0.4, 0, -1.0],
+      hipsPos: [0.1, -0.135, 0.08],
+      footR: [-0.15, 1.0, 0],
+    }, 'outQuad'),
+    key(a + (1 - a) * 0.45, {             // recoil toward guard
+      chest: [0.1, -0.02, 0],
+      torso: [0.12, -0.02, 0],
+      hips: [0.07, -0.1, 0],
+      shoulderR: [-1.05, -0.32, -0.28],
+      elbowR: [-2.0, 0, -0.1],
+      gloveR: [-0.3, 0, -0.2],
+      footR: [-0.19, -0.06, 0],
+      hipsPos: [0.02, -0.07, 0],
+    }, 'outQuart'),
     key(1, {}, 'inOutCubic'),
   ]);
 }
@@ -356,69 +414,92 @@ const CLIP_DEFS = {
     }, 'inOutCubic'),
   ], true),
 
-  // Dashes: hard lean + body dip that hits instantly (outQuart), holds
-  // through the slide, then springs back with a little overshoot.
+  // Dashes: the fighter DIGS LOW — a deep half-crouch slide (hips drop nearly
+  // half a meter, legs folded and tucked, torso pitched over the lead knee)
+  // that holds low through the slide and springs back up with overshoot.
   dashF: bake([
     key(0, {}),
     key(0.18, {
-      torso: [0.5, -0.1, 0], chest: [0.36, -0.15, 0], head: [-0.34, 0.14, 0],
-      hipsPos: [0, -0.22, 0.12],
-      shoulderL: [-1.35, 0.42, 0.3], elbowL: [-2.45, 0, 0.15],
-      shoulderR: [-1.25, -0.52, -0.3], elbowR: [-2.55, 0, -0.15],
-      kneeL: [0.8, 0, 0], kneeR: [0.8, 0, 0],
+      torso: [0.6, -0.1, 0], chest: [0.44, -0.15, 0], head: [-0.42, 0.14, 0],
+      hipsPos: [0, -0.46, 0.14],
+      shoulderL: [-1.4, 0.44, 0.3], elbowL: [-2.5, 0, 0.15],
+      shoulderR: [-1.3, -0.54, -0.3], elbowR: [-2.6, 0, -0.15],
+      thighL: [-0.62, 0.06, 0.03], thighR: [-0.5, -0.1, -0.03],
+      kneeL: [1.28, 0, 0], kneeR: [1.28, 0, 0],
+      footL: [-0.5, 0.06, 0], footR: [-0.55, -0.06, 0],
     }, 'outQuart'),
     key(0.52, {
-      torso: [0.42, -0.1, 0], chest: [0.3, -0.15, 0], head: [-0.28, 0.14, 0],
-      hipsPos: [0, -0.18, 0.1],
-      kneeL: [0.68, 0, 0], kneeR: [0.68, 0, 0],
+      torso: [0.52, -0.1, 0], chest: [0.38, -0.15, 0], head: [-0.36, 0.14, 0],
+      hipsPos: [0, -0.38, 0.12],
+      thighL: [-0.52, 0.06, 0.03], thighR: [-0.42, -0.1, -0.03],
+      kneeL: [1.1, 0, 0], kneeR: [1.1, 0, 0],
+      footL: [-0.42, 0.06, 0], footR: [-0.46, -0.06, 0],
     }, 'inOutCubic'),
     key(1, {}, 'outBack'),
   ]),
   dashB: bake([
     key(0, {}),
     key(0.18, {
-      torso: [-0.36, -0.1, 0], chest: [-0.26, -0.18, 0], head: [0.14, 0.14, 0],
-      hipsPos: [0, -0.2, -0.1],
-      shoulderL: [-1.45, 0.48, 0.42], elbowL: [-2.35, 0, 0.15],
-      shoulderR: [-1.35, -0.52, -0.42], elbowR: [-2.45, 0, -0.15],
-      kneeL: [0.72, 0, 0], kneeR: [0.72, 0, 0],
+      torso: [-0.42, -0.1, 0], chest: [-0.3, -0.18, 0], head: [0.18, 0.14, 0],
+      hipsPos: [0, -0.42, -0.12],
+      shoulderL: [-1.5, 0.5, 0.44], elbowL: [-2.4, 0, 0.15],
+      shoulderR: [-1.4, -0.54, -0.44], elbowR: [-2.5, 0, -0.15],
+      thighL: [-0.55, 0.06, 0.03], thighR: [-0.45, -0.1, -0.03],
+      kneeL: [1.15, 0, 0], kneeR: [1.15, 0, 0],
+      footL: [-0.45, 0.06, 0], footR: [-0.5, -0.06, 0],
     }, 'outQuart'),
     key(0.52, {
-      torso: [-0.28, -0.1, 0], chest: [-0.18, -0.18, 0], head: [0.1, 0.14, 0],
-      hipsPos: [0, -0.16, -0.08],
-      kneeL: [0.6, 0, 0], kneeR: [0.6, 0, 0],
+      torso: [-0.32, -0.1, 0], chest: [-0.2, -0.18, 0], head: [0.12, 0.14, 0],
+      hipsPos: [0, -0.34, -0.1],
+      thighL: [-0.46, 0.06, 0.03], thighR: [-0.38, -0.1, -0.03],
+      kneeL: [0.98, 0, 0], kneeR: [0.98, 0, 0],
+      footL: [-0.38, 0.06, 0], footR: [-0.42, -0.06, 0],
     }, 'inOutCubic'),
     key(1, {}, 'outBack'),
   ]),
   dashL: bake([
     key(0, {}),
-    key(0.18, {
-      hips: [0.06, -0.28, 0.44], torso: [0.12, -0.1, 0.28], chest: [0.1, -0.16, 0.14],
-      head: [-0.08, 0.14, -0.24],
-      hipsPos: [0, -0.24, 0],
-      kneeL: [0.9, 0, 0], kneeR: [0.5, 0, 0],
-      shoulderL: [-1.25, 0.42, 0.55], shoulderR: [-1.12, -0.5, -0.3],
+    key(0.18, {                            // low lateral slip — inside shoulder dips
+      hips: [0.06, -0.28, 0.5], torso: [0.14, -0.1, 0.34], chest: [0.12, -0.16, 0.18],
+      head: [-0.1, 0.14, -0.28],
+      hipsPos: [0, -0.46, 0],
+      thighL: [-0.66, 0.06, 0.08], thighR: [-0.36, -0.1, -0.05],
+      kneeL: [1.32, 0, 0], kneeR: [0.85, 0, 0],
+      footL: [-0.52, 0.06, 0], footR: [-0.4, -0.06, 0],
+      shoulderL: [-1.3, 0.44, 0.72],       // inside arm digs toward the sand
+      elbowL: [-2.2, 0, 0.2],
+      shoulderR: [-1.0, -0.62, -0.2],      // outside arm sweeps for balance
+      elbowR: [-1.9, 0, -0.15],
     }, 'outQuart'),
     key(0.52, {
-      hips: [0.06, -0.28, 0.32], torso: [0.1, -0.1, 0.2], head: [-0.06, 0.14, -0.16],
-      hipsPos: [0, -0.19, 0],
-      kneeL: [0.72, 0, 0], kneeR: [0.42, 0, 0],
+      hips: [0.06, -0.28, 0.36], torso: [0.12, -0.1, 0.24], head: [-0.08, 0.14, -0.2],
+      hipsPos: [0, -0.37, 0],
+      thighL: [-0.55, 0.06, 0.08], thighR: [-0.3, -0.1, -0.05],
+      kneeL: [1.12, 0, 0], kneeR: [0.7, 0, 0],
+      footL: [-0.44, 0.06, 0], footR: [-0.34, -0.06, 0],
     }, 'inOutCubic'),
     key(1, {}, 'outBack'),
   ]),
   dashR: bake([
     key(0, {}),
     key(0.18, {
-      hips: [0.06, -0.28, -0.44], torso: [0.12, -0.1, -0.28], chest: [0.1, -0.16, -0.14],
-      head: [-0.08, 0.14, 0.24],
-      hipsPos: [0, -0.24, 0],
-      kneeR: [0.9, 0, 0], kneeL: [0.5, 0, 0],
-      shoulderR: [-1.12, -0.5, -0.55], shoulderL: [-1.25, 0.42, 0.3],
+      hips: [0.06, -0.28, -0.5], torso: [0.14, -0.1, -0.34], chest: [0.12, -0.16, -0.18],
+      head: [-0.1, 0.14, 0.28],
+      hipsPos: [0, -0.46, 0],
+      thighR: [-0.66, -0.1, -0.08], thighL: [-0.36, 0.06, 0.05],
+      kneeR: [1.32, 0, 0], kneeL: [0.85, 0, 0],
+      footR: [-0.52, -0.06, 0], footL: [-0.4, 0.06, 0],
+      shoulderR: [-1.3, -0.44, -0.72],
+      elbowR: [-2.2, 0, -0.2],
+      shoulderL: [-1.0, 0.62, 0.2],
+      elbowL: [-1.9, 0, 0.15],
     }, 'outQuart'),
     key(0.52, {
-      hips: [0.06, -0.28, -0.32], torso: [0.1, -0.1, -0.2], head: [-0.06, 0.14, 0.16],
-      hipsPos: [0, -0.19, 0],
-      kneeR: [0.72, 0, 0], kneeL: [0.42, 0, 0],
+      hips: [0.06, -0.28, -0.36], torso: [0.12, -0.1, -0.24], head: [-0.08, 0.14, 0.2],
+      hipsPos: [0, -0.37, 0],
+      thighR: [-0.55, -0.1, -0.08], thighL: [-0.3, 0.06, 0.05],
+      kneeR: [1.12, 0, 0], kneeL: [0.7, 0, 0],
+      footR: [-0.44, -0.06, 0], footL: [-0.34, 0.06, 0],
     }, 'inOutCubic'),
     key(1, {}, 'outBack'),
   ]),

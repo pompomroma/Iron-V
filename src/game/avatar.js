@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { roundedBoxGeometry, canvasTexture } from '../engine/utils.js?v=7';
+import { roundedBoxGeometry, canvasTexture } from '../engine/utils.js?v=8';
 
 // ---------------------------------------------------------------------------
 // Original procedural boxer: soft-beveled blocky silhouette with real detail —
@@ -235,7 +235,7 @@ export function buildBoxer(p /* palette */, variant = 0) {
       }
     });
   }
-  const RED = new THREE.Color(0xff2a1e);
+  const _tint = new THREE.Color(0xff2a1e);
   const _mix = new THREE.Color();
 
   const api = {
@@ -251,20 +251,22 @@ export function buildBoxer(p /* palette */, variant = 0) {
       gloveMats.forEach((m) => (m.emissiveIntensity = e));
     },
 
-    // whole-body red telegraph flash (0..1) during attack windups — the
-    // "dodge or counter NOW" cue. v=0 restores authored material values.
+    // whole-body telegraph shine (0..1): red for attack windups ("dodge or
+    // counter NOW"), blue for the ultimate charge. v=0 restores authored
+    // material values exactly.
     _telegraph: 0,
-    setTelegraph(v) {
+    setTelegraph(v, color = 0xff2a1e) {
       if (this._ghosted) return;                    // dash flash owns materials
       if (v === 0 && this._telegraph === 0) return;
       this._telegraph = v;
+      _tint.setHex(color);
       for (const f of flashMats) {
         if (!f.baseEmissive) continue;
         if (v === 0) {
           f.mat.emissive.copy(f.baseEmissive);
           f.mat.emissiveIntensity = f.baseIntensity;
         } else {
-          f.mat.emissive.copy(_mix.lerpColors(f.baseEmissive, RED, v));
+          f.mat.emissive.copy(_mix.lerpColors(f.baseEmissive, _tint, v));
           f.mat.emissiveIntensity = f.baseIntensity + (Math.max(f.baseIntensity, 0.85) - f.baseIntensity) * v;
         }
       }

@@ -1,5 +1,5 @@
-import { EASE, clamp01, lerp, smoothstep, damp } from '../engine/utils.js?v=7';
-import { LIGHT, HEAVY } from './constants.js?v=7';
+import { EASE, clamp01, lerp, smoothstep, damp } from '../engine/utils.js?v=8';
+import { LIGHT, HEAVY } from './constants.js?v=8';
 
 // ---------------------------------------------------------------------------
 // Pose-keyframe animation with universal crossfade blending.
@@ -602,20 +602,39 @@ const CLIP_DEFS = {
   ]),
 
   // --- ultimate ------------------------------------------------------------
+  // Charge-up: a continuously sinking coil — crouch deepens, fists draw to
+  // the hips, shoulders wind tighter, then the whole body rises a breath at
+  // the moment of release. Blue telegraph shine rides on top.
   ultCharge: bake([
     key(0, {}),
-    key(0.4, {
-      hipsPos: [0, -0.26, 0],
-      chest: [0.35, -0.1, 0], torso: [0.2, -0.05, 0], head: [-0.25, 0.1, 0],
-      shoulderL: [-0.55, 0.65, 0.4], elbowL: [-2.5, 0, 0.2],
-      shoulderR: [-0.5, -0.7, -0.4], elbowR: [-2.55, 0, -0.2],
-      kneeL: [0.9, 0, 0], kneeR: [0.9, 0, 0],
-    }, 'outCubic', ),
-    key(1, {
-      hipsPos: [0, -0.28, 0],
-      chest: [0.38, -0.1, 0],
+    key(0.3, {
+      hipsPos: [0, -0.2, 0],
+      chest: [0.3, -0.1, 0], torso: [0.18, -0.05, 0], head: [-0.22, 0.1, 0],
+      shoulderL: [-0.6, 0.6, 0.38], elbowL: [-2.45, 0, 0.2],
+      shoulderR: [-0.55, -0.66, -0.38], elbowR: [-2.5, 0, -0.2],
+      kneeL: [0.75, 0, 0], kneeR: [0.75, 0, 0],
+      footL: [-0.2, 0.06, 0], footR: [-0.28, -0.06, 0],
+    }, 'outCubic'),
+    key(0.62, {
+      hipsPos: [0, -0.27, -0.02],
+      chest: [0.36, -0.12, 0], torso: [0.21, -0.06, 0], head: [-0.26, 0.1, 0],
+      shoulderL: [-0.52, 0.66, 0.42], elbowL: [-2.54, 0, 0.2],
+      shoulderR: [-0.47, -0.72, -0.42], elbowR: [-2.6, 0, -0.2],
+      kneeL: [0.92, 0, 0], kneeR: [0.92, 0, 0],
     }, 'inOutCubic'),
-  ], true, { tremble: 0.02 }),
+    key(0.85, {
+      hipsPos: [0, -0.31, -0.03],
+      chest: [0.4, -0.13, 0], torso: [0.23, -0.07, 0], head: [-0.29, 0.1, 0],
+      shoulderL: [-0.48, 0.7, 0.45], elbowL: [-2.58, 0, 0.2],
+      shoulderR: [-0.43, -0.76, -0.45], elbowR: [-2.64, 0, -0.2],
+      kneeL: [1.0, 0, 0], kneeR: [1.0, 0, 0],
+    }, 'inOutCubic'),
+    key(1, {
+      hipsPos: [0, -0.24, 0.02],           // rises a breath — release imminent
+      chest: [0.32, -0.1, 0], head: [-0.2, 0.1, 0],
+      kneeL: [0.85, 0, 0], kneeR: [0.85, 0, 0],
+    }, 'outQuad'),
+  ], false, { tremble: 0.02 }),
 
   ultFlurryL: bake([
     key(0, { }),

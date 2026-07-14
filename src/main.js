@@ -1,24 +1,24 @@
 import * as THREE from 'three';
-import { detectTier, DynamicResolution } from './engine/quality.js?v=7';
-import { createRenderer, resizeRendererToDisplay } from './engine/renderer.js?v=7';
-import { GameLoop } from './engine/loop.js?v=7';
-import { buildArena } from './game/arena.js?v=7';
-import { buildBoxer } from './game/avatar.js?v=7';
-import { Fighter, resolvePair } from './game/fighter.js?v=7';
-import { HumanController, AIController } from './game/controller.js?v=7';
-import { InputSystem } from './game/input.js?v=7';
-import { FightCamera } from './game/camera.js?v=7';
-import { Effects } from './game/effects.js?v=7';
-import { AudioEngine } from './game/audio.js?v=7';
-import { HUD } from './game/hud.js?v=7';
-import { UltimateCinematic } from './game/cinematic.js?v=7';
-import { PALETTES, ROUNDS, ULT, COUNTER } from './game/constants.js?v=7';
-import { clamp01, lerp, EASE, TAU } from './engine/utils.js?v=7';
+import { detectTier, DynamicResolution } from './engine/quality.js?v=8';
+import { createRenderer, resizeRendererToDisplay } from './engine/renderer.js?v=8';
+import { GameLoop } from './engine/loop.js?v=8';
+import { buildArena } from './game/arena.js?v=8';
+import { buildBoxer } from './game/avatar.js?v=8';
+import { Fighter, resolvePair } from './game/fighter.js?v=8';
+import { HumanController, AIController } from './game/controller.js?v=8';
+import { InputSystem } from './game/input.js?v=8';
+import { FightCamera } from './game/camera.js?v=8';
+import { Effects } from './game/effects.js?v=8';
+import { AudioEngine } from './game/audio.js?v=8';
+import { HUD } from './game/hud.js?v=8';
+import { UltimateCinematic, PerfectDodgeCinematic } from './game/cinematic.js?v=8';
+import { PALETTES, ROUNDS, ULT, COUNTER, PDODGE } from './game/constants.js?v=8';
+import { clamp01, lerp, EASE, TAU } from './engine/utils.js?v=8';
 
 // ---------------------------------------------------------------------------
 // boot
 // ---------------------------------------------------------------------------
-const BUILD = 'v7';
+const BUILD = 'v8';
 document.getElementById('build-tag').textContent = 'IRON V · build ' + BUILD;
 
 const canvas = document.getElementById('game-canvas');
@@ -53,6 +53,8 @@ effects.registerFighter(p2);
 const audio = new AudioEngine();
 const hud = new HUD();
 const cinematic = new UltimateCinematic({ fightCam, effects, audio, hud });
+const pdodgeCine = new PerfectDodgeCinematic({ fightCam, effects, audio, hud });
+let pdodgeReadyAt = 0;    // performance.now() gate so the cutscene stays special
 
 hud.setNames('YOU', 'IRON-BOT');
 hud.showTouch(input.isTouch);
@@ -146,9 +148,10 @@ function handleEvents() {
       case 'feint': audio.feint(); break;
 
       case 'hit': {
-        const heavy = e.kind === 'heavy';
+        const heavy = e.kind !== 'light';
         audio.hit(heavy);
         effects.impact(chestOf(f), e.attacker.avatar.palette.accent, heavy);
+        effects.setAura(f, false);          // an interrupted ult charge loses its aura
         fightCam.addShake(heavy ? 0.38 : 0.18);
         if (f === p1) { hud.damageVignette(); input.clearAttackBuffer(); }
         if (heavy) fightCam.fovKick(-3);
@@ -180,6 +183,25 @@ function handleEvents() {
         break;
       }
       case 'dodge': {
+        // a PERFECT player dodge (tight timing) triggers the reward cutscene
+        if (e.perfect && f === p1 && G.state === 'fight' && performance.now() >= pdodgeReadyAt) {
+          pdodgeReadyAt = performance.now() + PDODGE.COOLDOWN * 1000;
+          setState('pdodge');
+          pdodgeCine.start(p1, e.attacker, {
+            onDone: () => {
+              // the attacker comes to, stunned and facing the wrong way
+              const a = e.attacker;
+              a.setCinematic(false);
+              p1.setCinematic(false);
+              if (a.state !== 'ko') {
+                a.state = 'hitstun'; a.stateT = 0; a._stunDur = PDODGE.STUN;
+                a.anim.play('stunned', { duration: 1.0, blend: 0.15 });
+              }
+              if (G.state === 'pdodge') setState('fight');
+            },
+          });
+          break;
+        }
         audio.dodge();
         hud.popupSide('DODGE', 'dodge');
         break;
@@ -209,34 +231,59 @@ function handleEvents() {
         break;
       }
 
-      case 'ultRequest': {
-        if (G.state !== 'fight') break;
-        const dist = f.distanceTo(f.opponent);
-        if (dist <= ULT.RANGE) {
-          f.ult = 0;
-          setState('ult');
-          cinematic.start(f, f.opponent, {
-            onDamage: (amt) => {
-              const v = f.opponent;
-              v.hp = Math.max(0, v.hp - amt);
-            },
-            onDone: () => {
-              const v = f.opponent;
-              f.setCinematic(false);
-              if (v.hp <= 0) {
-                v.state = 'ko'; v.stateT = 0;      // already in the ko anim
-                events.push({ type: 'ko', fighter: v, attacker: f });
-              } else {
-                v.state = 'hitstun'; v.stateT = 0; v._stunDur = 0.9;
-                v.anim.play('stunned', { duration: 1.0, blend: 0.2 });
-              }
-              if (G.state === 'ult') setState('fight');
-            },
-          });
-        } else {
-          f.ult = ULT.WHIFF_REFUND;
+      case 'ultWindup': {
+        // blue charge begins — visible, dodgeable, blockable
+        effects.setAura(f, true);
+        audio.ultCharge();
+        break;
+      }
+
+      case 'ultRelease': {
+        effects.setAura(f, false);
+        if (G.state !== 'fight') { break; }
+        const v = f.opponent;
+        const dist = f.distanceTo(v);
+
+        if (dist > ULT.RANGE) {
+          f.ult = ULT.WHIFF_REFUND;                   // charged into empty air
           if (f === p1) { hud.popupSide('TOO FAR!', 'dodge'); audio.noStamina(); }
+          break;
         }
+        if (v.dashInvuln) {
+          f.ult = ULT.WHIFF_REFUND;                   // read the blue flash and dodged
+          audio.dodge();
+          hud.popupSide('DODGE', 'dodge');
+          break;
+        }
+        if (v.blocking && v.state === 'idle') {
+          f.ult = 0;                                  // blocked — no cinematic,
+          v.receiveHit(f, {                           // but the guard gets mauled
+            DAMAGE: ULT.DAMAGE, GUARD_DAMAGE: ULT.GUARD_DAMAGE, CHIP: ULT.CHIP,
+            HITSTUN: ULT.HITSTUN, KNOCKBACK: ULT.KNOCKBACK,
+            ULT_GAIN_DEAL: 0, ULT_GAIN_TAKE: 0,
+          }, 'ult');
+          hud.popupSide('BLOCKED!', 'break');
+          fightCam.addShake(0.5);
+          break;
+        }
+
+        // clean connect — the cinematic plays
+        f.ult = 0;
+        setState('ult');
+        cinematic.start(f, v, {
+          onDamage: (amt) => { v.hp = Math.max(0, v.hp - amt); },
+          onDone: () => {
+            f.setCinematic(false);
+            if (v.hp <= 0) {
+              v.state = 'ko'; v.stateT = 0;           // already in the ko anim
+              events.push({ type: 'ko', fighter: v, attacker: f });
+            } else {
+              v.state = 'hitstun'; v.stateT = 0; v._stunDur = 0.9;
+              v.anim.play('stunned', { duration: 1.0, blend: 0.2 });
+            }
+            if (G.state === 'ult') setState('fight');
+          },
+        });
         break;
       }
     }
@@ -269,7 +316,7 @@ function update(dt) {
       handleEvents();
       break;
     }
-    case 'ult': {
+    case 'ult': case 'pdodge': {
       // fighters are in cinematic state; keep ticking for interpolation bookkeeping
       p1.update(dt, NEUTRAL); p2.update(dt, NEUTRAL);
       handleEvents();
@@ -338,6 +385,7 @@ function render(vdt, alpha, renderDt) {
   p1.syncVisual(alpha, vdt);
   p2.syncVisual(alpha, vdt);
   if (cinematic.active) cinematic.update(rawDt);
+  if (pdodgeCine.active) pdodgeCine.update(rawDt);
   effects.update(vdt);
   effects.updateTrails([p1, p2], vdt);
   effects.updateShields([p1, p2], rawDt);

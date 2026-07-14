@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { ULT } from './constants.js?v=7';
-import { clamp01, lerp, EASE, TAU } from '../engine/utils.js?v=7';
+import { ULT, PDODGE } from './constants.js?v=8';
+import { clamp01, lerp, EASE, TAU } from '../engine/utils.js?v=8';
 
 // ---------------------------------------------------------------------------
 // Ultimate cutscene: an in-engine, letterboxed, multi-cut action sequence.
@@ -199,4 +199,154 @@ export class UltimateCinematic {
     cam.lookAt(look);
     if (cam.fov !== 55) { cam.fov = 55; cam.updateProjectionMatrix(); }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Perfect-dodge cutscene (~1.85s): the attacker's punch whiffs in heavy
+// slow-mo while the dodger ghost-dashes around behind them, then a tight
+// close-up — the attacker's face front-on in the foreground, the dodger
+// looming over their shoulder — before combat snaps back with the attacker
+// stunned and still facing the wrong way.
+// ---------------------------------------------------------------------------
+export class PerfectDodgeCinematic {
+  constructor({ fightCam, effects, audio, hud }) {
+    this.fightCam = fightCam;
+    this.effects = effects;
+    this.audio = audio;
+    this.hud = hud;
+    this.active = false;
+  }
+
+  start(dodger, attacker, { onDone }) {
+    this.active = true;
+    this.dod = dodger;
+    this.att = attacker;
+    this.onDone = onDone;
+    this.t = 0;
+    this._cut2 = false;
+    this._flashed = false;
+
+    dodger.setCinematic(true);
+    attacker.setCinematic(true);
+
+    // pin geometry: attacker keeps facing where the dodger USED to be
+    this.attFacing = attacker.facing;
+    this.f = new THREE.Vector2(Math.sin(attacker.facing), Math.cos(attacker.facing));
+    this.a0 = attacker.pos.clone();
+    this.d0 = dodger.pos.clone();
+    // land behind the attacker, offset to the far side of the close-up camera
+    // so the dodger's head looms over the attacker's shoulder
+    const side = new THREE.Vector2(-this.f.y, this.f.x);
+    this.dEnd = attacker.pos.clone()
+      .addScaledVector(this.f, -PDODGE.BEHIND_DIST)
+      .addScaledVector(side, -0.42);
+
+    // attacker holds a whiffed full extension; dodger is mid-dash
+    attacker.anim.play('ultFlurryR', { duration: 1.4, blend: 0.05, speed: 0.5 });
+    dodger.anim.play('dashF', { duration: 0.5, blend: 0.05 });
+    this.effects.dashGhosts(dodger);
+
+    this.hud.letterbox(true);
+    this.audio.dash();
+    this.fightCam.override = (cam, rdt) => this._camera(cam);
+  }
+
+  _setPos(fh, x, z) { fh.pos.set(x, z); fh.prevPos.set(x, z); }
+
+  update(rdt) {
+    if (!this.active) return;
+    // deep slow-mo through the whiff, easing back for the close-up
+    const rate = this.t < 0.45 ? 0.4 : 1;
+    this.t += rdt * rate;
+    const t = this.t;
+    const att = this.att, dod = this.dod;
+
+    // attacker never turns — that's the whole point
+    att.facing = this.attFacing; att.prevFacing = att.facing;
+
+    if (t < 0.45) {
+      // dodger arcs around the attacker to the spot behind them
+      const u = EASE.inOutCubic(clamp01(t / 0.45));
+      const side = new THREE.Vector2(-this.f.y, this.f.x);
+      const mid = this.a0.clone().addScaledVector(side, 1.4);   // swing wide
+      const p = bezier2(this.d0, mid, this.dEnd, u);
+      this._setPos(dod, p.x, p.y);
+      dod.facing = Math.atan2(att.pos.x - dod.pos.x, att.pos.y - dod.pos.y);
+      dod.prevFacing = dod.facing;
+      if (Math.random() < 0.5) {
+        this.effects.groundDust(new THREE.Vector3(dod.pos.x, 0, dod.pos.y), 2);
+      }
+    } else if (!this._cut2) {
+      this._cut2 = true;
+      // THE shot: attacker face foreground, dodger looming behind
+      this._setPos(dod, this.dEnd.x, this.dEnd.y);
+      dod.facing = this.attFacing; dod.prevFacing = dod.facing;  // stares at their back
+      dod.anim.play('idle', { duration: 1.4, blend: 0.14 });
+      att.anim.play('blockHit', { duration: 0.5, blend: 0.08 }); // startled flinch
+      this.audio.perfectDodge();
+      this.hud.popupSide('PERFECT DODGE!', 'perfect');
+    }
+
+    if (t >= 1.5 && !this._flashed) {
+      this._flashed = true;
+      this.hud.flash(0.4, 100);
+      this.hud.letterbox(false);
+    }
+    if (t >= 1.85) this._finish();
+  }
+
+  _finish() {
+    this.active = false;
+    this.fightCam.override = null;      // shoulder camera glides back
+    this.onDone();
+  }
+
+  _camera(cam) {
+    const t = this.t;
+    const A = this.att.avatar.group.position;
+    const D = this.dod.avatar.group.position;
+    const f3 = new THREE.Vector3(this.f.x, 0, this.f.y);
+    // "in front of the attacker" is derived from the real attacker→dodger
+    // axis so the attacker's face reliably faces camera regardless of setup
+    const toA = new THREE.Vector3(A.x - D.x, 0, A.z - D.z);
+    if (toA.lengthSq() < 1e-4) toA.copy(f3);
+    toA.normalize();
+    const side3 = new THREE.Vector3(-toA.z, 0, toA.x);
+    let fov = 50;
+
+    if (t < 0.45) {
+      // side-on wide: the punch sails through empty space
+      const u = clamp01(t / 0.45);
+      _pPos.set(A.x, 1.5, A.z).addScaledVector(side3, -3.8).addScaledVector(f3, lerp(0.6, 0.2, u));
+      _pLook.set(A.x, 1.35, A.z).addScaledVector(f3, 0.6);
+    } else {
+      // THE close-up: camera in front of the attacker's face, offset to one
+      // side so the dodger looms over the far shoulder; both faces in frame
+      const u = EASE.outQuad(clamp01((t - 0.45) / 1.05));
+      _pPos.copy(A).addScaledVector(toA, lerp(1.5, 1.16, u))
+        .addScaledVector(side3, 0.52)
+        .setY(lerp(1.66, 1.56, u));
+      // aim between the two heads, biased back toward the looming dodger
+      _pLook.copy(A).addScaledVector(toA, -0.55).addScaledVector(side3, -0.12);
+      _pLook.y = 1.62;
+      fov = 40;
+    }
+
+    cam.up.set(0, 1, 0);
+    cam.position.copy(_pPos);
+    cam.lookAt(_pLook);
+    if (cam.fov !== fov) { cam.fov = fov; cam.updateProjectionMatrix(); }
+  }
+}
+
+const _pPos = new THREE.Vector3();
+const _pLook = new THREE.Vector3();
+const _bz = new THREE.Vector2();
+function bezier2(p0, p1, p2, u) {
+  const v = 1 - u;
+  _bz.set(
+    v * v * p0.x + 2 * v * u * p1.x + u * u * p2.x,
+    v * v * p0.y + 2 * v * u * p1.y + u * u * p2.y
+  );
+  return _bz;
 }

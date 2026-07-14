@@ -130,6 +130,13 @@ export class AudioEngine {
     this._noise({ dur: 1.4, filter: 'lowpass', freq: 500, gain: 0.5, when: 0.04 });
     this._tone({ type: 'triangle', freq: 1500, sweepTo: 2400, dur: 0.5, gain: 0.14, when: 0.02 });
   }
+  perfectDodge() {
+    // deep presence: sub boom + airy riser + a glassy ping on top
+    this._tone({ type: 'sine', freq: 120, sweepTo: 30, dur: 0.7, gain: 0.9 });
+    this._noise({ dur: 0.6, filter: 'bandpass', freq: 400, sweepTo: 3800, q: 2.2, gain: 0.22, when: 0.02 });
+    this._tone({ type: 'sine', freq: 1560, dur: 0.5, gain: 0.2, when: 0.1 });
+    this._tone({ type: 'sine', freq: 2340, dur: 0.35, gain: 0.09, when: 0.12 });
+  }
   win() {
     [523, 659, 784, 1046].forEach((f, i) =>
       this._tone({ type: 'triangle', freq: f, dur: 0.5, gain: 0.22, when: i * 0.13 }));

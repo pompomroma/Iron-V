@@ -74,8 +74,16 @@ export const DASH = {
   DURATION: 0.32,
   SPEED: 13.5,           // initial burst, decays over duration
   IFRAMES: 0.22,         // invulnerable window from dash start
+  PERFECT_WINDOW: 0.12,  // dodge inside this slice of the dash = PERFECT
   STAMINA: 20,
   COOLDOWN: 0.42,
+};
+
+// perfect-dodge reward cutscene (player only)
+export const PDODGE = {
+  COOLDOWN: 6,           // seconds between cutscene triggers
+  BEHIND_DIST: 1.35,     // where the dodger reappears behind the attacker
+  STUN: 0.9,             // attacker stun when the scene ends
 };
 
 // Fraction of an attack's recover phase that can be cancelled into the next
@@ -97,8 +105,13 @@ export const COUNTER = {
 export const ULT = {
   DAMAGE: 26,            // spread over the cinematic flurry + final blow
   RANGE: 4.2,            // must be roughly this close to connect
-  WHIFF_REFUND: 55,      // meter refunded if used out of range
+  WHIFF_REFUND: 55,      // meter refunded if dodged / used out of range
   DURATION: 5.2,         // cinematic length (real seconds)
+  WINDUP: 0.75,          // blue-shine charge delay — dodge or block it here
+  GUARD_DAMAGE: 55,      // a blocked ultimate mauls the guard meter
+  CHIP: 4,
+  HITSTUN: 0.5,
+  KNOCKBACK: 6,
 };
 
 export const ROUNDS = {

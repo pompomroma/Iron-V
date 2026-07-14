@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import {
   FIGHTER, LIGHT, HEAVY, FEINT, BLOCK, DASH, STAMINA, COUNTER, ULT, ARENA, CHAIN_WINDOW,
-} from './constants.js?v=7';
-import { AnimPlayer } from './animation.js?v=7';
-import { clamp, clamp01, angleDamp, damp } from '../engine/utils.js?v=7';
+} from './constants.js?v=8';
+import { AnimPlayer } from './animation.js?v=8';
+import { clamp, clamp01, angleDamp, damp } from '../engine/utils.js?v=8';
 
 const ATTACKS = { light: LIGHT, heavy: HEAVY };
 
@@ -90,9 +90,15 @@ export class Fighter {
     this.anim.play('victory', { duration: 2.2, blend: 0.3 });
   }
 
-  // externally driven during the ultimate cutscene
+  // externally driven during cutscenes (ultimate / perfect dodge)
   setCinematic(on) {
-    if (on) { this.state = 'cinematic'; this.stateT = 0; this.vel.set(0, 0); this.blocking = false; this.attack = null; this.avatar.setTelegraph(0); }
+    if (on) {
+      this.state = 'cinematic'; this.stateT = 0; this.vel.set(0, 0);
+      this.blocking = false; this.attack = null;
+      this.dashInfo = null; this.avatar.setGhost(0);   // a cutscene can start mid-dash
+      this.avatar.setTelegraph(0);
+      this.avatar.setGloveGlow(0);
+    }
     else if (this.state === 'cinematic') { this.state = 'idle'; this.stateT = 0; this.anim.play('idle', { duration: 1, blend: 0.2, restart: false }); }
   }
 
@@ -131,6 +137,7 @@ export class Fighter {
     switch (this.state) {
       case 'idle':       this._tickIdle(dt, intent, opp); break;
       case 'attack':     this._tickAttack(dt, intent, opp); break;
+      case 'ultwind':    this._tickUltWind(dt); break;
       case 'dash':       this._tickDash(dt); break;
       case 'hitstun':    this._tickSimple(dt, this._stunDur); break;
       case 'guardbreak': this._tickSimple(dt, BLOCK.BREAK_STUN, () => { this.guard = BLOCK.GUARD_AFTER_BREAK; }); break;
@@ -152,7 +159,12 @@ export class Fighter {
 
     // action priority: ult > dash > heavy > light
     if (intent.ult && this.ult >= FIGHTER.MAX_ULT) {
-      this.emit('ultRequest');                    // main validates range & starts cinematic
+      // blue-shine charge delay — the opponent can dodge or block during it
+      this.state = 'ultwind'; this.stateT = 0;
+      this.blocking = false;
+      this.anim.play('ultCharge', { duration: ULT.WINDUP, blend: 0.12 });
+      this.emit('ultWindup');
+      return;
     } else if (intent.dash && this.dashCooldown === 0) {
       if (this._startDash(intent)) return;
     } else if (intent.heavy) {
@@ -315,6 +327,22 @@ export class Fighter {
     return true;
   }
 
+  // ultimate charge: blue pulsing shine ramps toward release; the opponent
+  // has this whole window to dash away or raise a block
+  _tickUltWind(dt) {
+    this.vel.multiplyScalar(Math.max(0, 1 - FIGHTER.FRICTION * dt));
+    const u = clamp01(this.stateT / ULT.WINDUP);
+    const pulse = 0.55 + 0.45 * Math.abs(Math.sin(this.stateT * 16));
+    this.avatar.setTelegraph(u * pulse * 0.55, 0x49d8ff);
+    this.avatar.setGloveGlow(u);
+    if (this.stateT >= ULT.WINDUP) {
+      this.avatar.setTelegraph(0);
+      this.avatar.setGloveGlow(0);
+      this.state = 'idle'; this.stateT = 0;
+      this.emit('ultRelease');            // main resolves: whiff / dodged / blocked / cinematic
+    }
+  }
+
   _tickDash(dt) {
     const d = this.dashInfo;
     d.t += dt;
@@ -342,9 +370,10 @@ export class Fighter {
   receiveHit(attacker, C, kind) {
     if (this.state === 'ko' || this.state === 'cinematic') return;
 
-    // dash i-frames
+    // dash i-frames — dashing within the tight window right before the hit
+    // would land counts as a PERFECT dodge (main may reward it)
     if (this.dashInvuln) {
-      this.emit('dodge', { attacker });
+      this.emit('dodge', { attacker, perfect: this.dashInfo.t < DASH.PERFECT_WINDOW });
       return;
     }
 
@@ -371,9 +400,10 @@ export class Fighter {
       return;
     }
 
-    // clean hit
+    // clean hit — interrupting a windup OR an ult charge counts as a counter
     let dmg = C.DAMAGE;
-    const countered = this.state === 'attack' && this.attack && this.attack.phase === 'windup';
+    const countered = (this.state === 'attack' && this.attack && this.attack.phase === 'windup')
+      || this.state === 'ultwind';
     if (countered) dmg *= COUNTER.MULT;
 
     this.hp -= dmg;
@@ -398,7 +428,7 @@ export class Fighter {
     const rehit = this.state === 'hitstun';
     this.state = 'hitstun'; this.stateT = 0; this.blocking = false;
     this._stunDur = C.HITSTUN * (countered ? 1.25 : 1);
-    this.anim.play(kind === 'heavy' ? 'hitHeavy' : 'hitLight', {
+    this.anim.play(kind === 'light' ? 'hitLight' : 'hitHeavy', {
       duration: this._stunDur * 1.7, blend: rehit ? 0.12 : 0.09,
     });
     this.emit(countered ? 'counter' : 'hit', { attacker, kind, dmg });

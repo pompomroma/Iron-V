@@ -182,6 +182,10 @@ body.letterbox #letterbox-bottom { transform: translateY(0); }
 .popup-side.counter { color: #ff4b3e; }
 .popup-side.break { color: #ffd23e; }
 .popup-side.dodge { color: #bfe9ff; }
+.popup-side.perfect {
+  color: #eafeff;
+  text-shadow: 0 0 18px #49d8ff, 0 0 42px rgba(73, 216, 255, 0.7), 0 3px 6px #000;
+}
 
 .popup-center {
   position: absolute; left: 50%; top: 38%;

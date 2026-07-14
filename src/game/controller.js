@@ -1,5 +1,5 @@
-import { AI_LEVELS, AI_ROUND_RAMP, ULT, FIGHTER, ARENA } from './constants.js?v=7';
-import { clamp, randRange, damp } from '../engine/utils.js?v=7';
+import { AI_LEVELS, AI_ROUND_RAMP, ULT, FIGHTER, ARENA } from './constants.js?v=8';
+import { clamp, randRange, damp } from '../engine/utils.js?v=8';
 
 // ---------------------------------------------------------------------------
 // Controllers produce one intent per sim tick:
@@ -81,6 +81,14 @@ export class AIController {
         // otherwise: eats it / trades
       }
     }
+
+    // ---- the opponent's ULT is charging (blue shine) — get out or brace ------
+    if (opp.state === 'ultwind' && !this._ultReacted) {
+      this._ultReacted = true;
+      if (Math.random() < 0.55 + L.evadeProb) this._schedule(L.reaction * randRange(0.9, 1.3), 'dash');
+      else this._schedule(L.reaction * randRange(0.9, 1.2), 'block');
+    }
+    if (opp.state !== 'ultwind') this._ultReacted = false;
 
     // ---- punish stunned opponents immediately -------------------------------
     const oppHelpless = opp.state === 'guardbreak' || opp.state === 'hitstun';

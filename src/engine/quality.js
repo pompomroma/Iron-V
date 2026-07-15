@@ -1,4 +1,4 @@
-import { clamp } from './utils.js?v=10';
+import { clamp } from './utils.js?v=11';
 
 // ---------------------------------------------------------------------------
 // Device tier detection + real-time dynamic resolution.
@@ -36,11 +36,11 @@ export function detectTier() {
 
   const dpr = window.devicePixelRatio || 1;
   const tiers = {
-    // maxPR is a ceiling, not a promise — the dynamic scaler climbs toward it
-    // whenever the GPU has headroom, so capable devices render at native DPR.
-    LOW:  { shadow: 1024, maxPR: Math.min(dpr, 1.8),  minPR: 0.7,  particles: 0.5, dust: false, antialias: false, softShadow: false, floorSeg: 64 },
-    MED:  { shadow: 2048, maxPR: Math.min(dpr, 2.75), minPR: 0.85, particles: 1.0, dust: true,  antialias: true,  softShadow: true,  floorSeg: 96 },
-    HIGH: { shadow: 4096, maxPR: dpr,                 minPR: 1.0,  particles: 1.6, dust: true,  antialias: true,  softShadow: true,  floorSeg: 96 },
+    // maxPR = the sharpness ceiling; the scaler starts here and only backs off
+    // when frames blow budget, so capable devices render at full native DPR.
+    LOW:  { shadow: 1024, maxPR: Math.min(dpr, 2.0), minPR: 0.75, particles: 0.5, dust: false, antialias: false, softShadow: false, floorSeg: 64 },
+    MED:  { shadow: 2048, maxPR: dpr,                minPR: 0.9,  particles: 1.0, dust: true,  antialias: true,  softShadow: true,  floorSeg: 96 },
+    HIGH: { shadow: 4096, maxPR: dpr,                minPR: 1.0,  particles: 1.6, dust: true,  antialias: true,  softShadow: true,  floorSeg: 96 },
   };
   return { name, isTouch, gpu, ...tiers[name] };
 }
@@ -50,7 +50,8 @@ export class DynamicResolution {
     this.renderer = renderer;
     this.tier = tier;
     this.onChange = onChange;
-    this.scale = clamp(1.0, tier.minPR, tier.maxPR);
+    // start at the sharpness ceiling — only back off if frames can't hold it
+    this.scale = tier.maxPR;
     this.emaFrame = 16.7;
     this.refresh = 60;          // estimated display Hz
     this.targetFps = 0;         // set by the frame governor (0 = native refresh)
@@ -101,12 +102,12 @@ export class DynamicResolution {
     let next = this.scale;
 
     if (this.emaFrame > budget * 1.22) {
-      next = this.scale * 0.85;                        // shrink fast
+      next = this.scale * 0.85;                        // shrink fast when dropping
       this._stable = 0;
-    } else if (this.emaFrame < budget * 0.78) {
+    } else if (this.emaFrame < budget * 0.82) {
       this._stable++;
-      if (this._stable >= 5) {                         // ~2.5s of headroom
-        next = this.scale * (this.emaFrame < budget * 0.55 ? 1.15 : 1.07);
+      if (this._stable >= 3) {                         // ~1.5s headroom → climb back to max quickly
+        next = this.scale * (this.emaFrame < budget * 0.6 ? 1.18 : 1.09);
         this._stable = 0;
       }
     } else {

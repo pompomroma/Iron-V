@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { roundedBoxGeometry, canvasTexture } from '../engine/utils.js?v=10';
+import { roundedBoxGeometry, canvasTexture } from '../engine/utils.js?v=11';
 
 // ---------------------------------------------------------------------------
 // Original procedural boxer: soft-beveled blocky silhouette with real detail —
@@ -322,10 +322,10 @@ export function buildBoxer(p /* palette */, variant = 0) {
     // impulses SET the deformed pose directly (guaranteed visible pop); the
     // spring in updateStretch then snaps it back toward 1 with a little bounce
     _set(x, y, z) { this._sq[0] = x; this._sq[1] = y; this._sq[2] = z; this._sqv[0] = this._sqv[1] = this._sqv[2] = 0; },
-    stretchDash()  { this._set(0.84, 0.9, 1.22); },      // thin + long along travel
-    stretchPunch() { this._set(0.93, 0.95, 1.13); },     // lunge toward the blow
-    squashHit()    { this._set(1.17, 0.82, 1.06); },     // wide + short recoil
-    squashLand()   { this._set(1.13, 0.86, 0.98); },     // absorb the dash stop
+    stretchDash()  { this._set(0.88, 0.92, 1.15); },     // thin + long along travel
+    stretchPunch() { this._set(0.94, 0.96, 1.11); },     // lunge toward the blow
+    squashHit()    { this._set(1.13, 0.87, 1.05); },     // wide + short recoil
+    squashLand()   { this._set(1.1, 0.88, 0.98); },      // absorb the dash stop
     resetStretch() { this._sq[0] = this._sq[1] = this._sq[2] = 1; this._sqv[0] = this._sqv[1] = this._sqv[2] = 0; root.scale.set(1, 1, 1); },
     updateStretch(rdt) {
       const dt = Math.min(rdt, 0.05);

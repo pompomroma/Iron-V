@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { canvasTexture, randRange, TAU, clamp01 } from '../engine/utils.js?v=10';
+import { canvasTexture, randRange, TAU, clamp01 } from '../engine/utils.js?v=11';
 
 // ---------------------------------------------------------------------------
 // All VFX: additive sprite pools (flashes, rings, sparks, smoke), glove energy
@@ -216,10 +216,11 @@ export class Effects {
       }
     }
 
-    // charge auras
+    // charge auras — emission rate and updraft scale with the ramping power
     for (const [fighter, a] of this.auras) {
       a.t += rdt;
-      a.emit += rdt * 30;
+      const pw = a.power || 1;
+      a.emit += rdt * 30 * pw;
       const base = fighter.avatar.group.position;
       while (a.emit > 1) {
         a.emit -= 1;
@@ -227,8 +228,8 @@ export class Effects {
         this.spawn({
           tex: this.tex.dot, color: fighter.avatar.palette.accent,
           pos: new THREE.Vector3(base.x + Math.cos(ang) * r, randRange(0.1, 0.4), base.z + Math.sin(ang) * r),
-          vel: new THREE.Vector3(randRange(-0.2, 0.2), randRange(2.2, 4), randRange(-0.2, 0.2)),
-          life: randRange(0.35, 0.6), size: randRange(0.1, 0.22),
+          vel: new THREE.Vector3(randRange(-0.2, 0.2), randRange(2.2, 4) * (0.7 + pw * 0.35), randRange(-0.2, 0.2)),
+          life: randRange(0.35, 0.6), size: randRange(0.1, 0.22) * (0.85 + pw * 0.22),
         });
       }
     }
@@ -463,9 +464,46 @@ export class Effects {
     }
   }
 
-  setAura(fighter, on) {
-    if (on && !this.auras.has(fighter)) this.auras.set(fighter, { t: 0, emit: 0 });
-    if (!on) this.auras.delete(fighter);
+  setAura(fighter, on, power = 1) {
+    if (on) {
+      const a = this.auras.get(fighter) || { t: 0, emit: 0 };
+      a.power = power;
+      this.auras.set(fighter, a);
+    } else this.auras.delete(fighter);
+  }
+
+  // A big layered shockwave — bright core + stacked expanding rings + a spray
+  // of radial sparks. `scale` drives the whole thing (final blow uses ~1.5).
+  shockwave(pos, color, scale = 1) {
+    this.spawn({ tex: this.tex.dot, color: 0xffffff, pos, life: 0.16, size: 3 * scale, grow: 14 * scale, opacity: 1 });
+    this.spawn({ tex: this.tex.ring, color: 0xffffff, pos, life: 0.34, size: 0.5, grow: 46 * scale, opacity: 0.9 });
+    this.spawn({ tex: this.tex.ring, color, pos, life: 0.5, size: 0.4, grow: 30 * scale, opacity: 0.95 });
+    this.spawn({ tex: this.tex.ring, color, pos, life: 0.66, size: 0.3, grow: 18 * scale, opacity: 0.65 });
+    const n = Math.round(30 * this.k * scale);
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * TAU, sp = randRange(6, 18) * scale;
+      this.spawn({
+        tex: this.tex.spark, color: Math.random() < 0.5 ? color : 0xffffff,
+        pos: pos.clone(),
+        vel: new THREE.Vector3(Math.cos(a) * sp, randRange(0.5, 6), Math.sin(a) * sp),
+        life: randRange(0.3, 0.7), size: randRange(0.4, 1.0), gravity: 12, rotation: -a,
+      });
+    }
+  }
+
+  // Energy converging inward on the charging fighter (charge-beat pulses).
+  chargeBurst(pos, color) {
+    this.spawn({ tex: this.tex.ring, color, pos, life: 0.4, size: 2.6, grow: -4.5, opacity: 0.9 });
+    const n = Math.round(16 * this.k);
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * TAU, r = randRange(1.5, 2.6);
+      this.spawn({
+        tex: this.tex.spark, color,
+        pos: new THREE.Vector3(pos.x + Math.cos(a) * r, randRange(0.1, 0.6), pos.z + Math.sin(a) * r),
+        vel: new THREE.Vector3(-Math.cos(a) * randRange(3, 6), randRange(2, 5), -Math.sin(a) * randRange(3, 6)),
+        life: randRange(0.25, 0.5), size: randRange(0.3, 0.62), rotation: a,
+      });
+    }
   }
 
   clearTransient() {

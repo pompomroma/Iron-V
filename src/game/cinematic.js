@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { ULT, PDODGE } from './constants.js?v=10';
-import { clamp01, lerp, EASE, TAU } from '../engine/utils.js?v=10';
+import { ULT, PDODGE } from './constants.js?v=11';
+import { clamp01, lerp, EASE, TAU } from '../engine/utils.js?v=11';
 
 // ---------------------------------------------------------------------------
 // Ultimate cutscene: an in-engine, letterboxed, multi-cut action sequence.
@@ -36,6 +36,10 @@ export class UltimateCinematic {
     this._finalDone = false;
     this._rushed = false;
     this._cut3Started = false;
+    this._chargeBeat = 0;
+    this._fovPunch = 0;
+    this._freeze = 0;
+    this._accent = hexStr(attacker.avatar.palette.accent);
 
     attacker.setCinematic(true);
     victim.setCinematic(true);
@@ -61,6 +65,8 @@ export class UltimateCinematic {
 
   update(rdt) {
     if (!this.active) return;
+    // freeze-frame: hold the impact instant for a beat of pure drama
+    if (this._freeze > 0) { this._freeze -= rdt; return; }
     // dramatic time ramp: normal → slow through the flurry → snap back
     const rate = this.t < 1.1 ? 1 : this.t < 3.0 ? 0.62 : this.t < 3.9 ? 0.7 : 1;
     this.t += rdt * rate;
@@ -73,14 +79,33 @@ export class UltimateCinematic {
     vic.facing = Math.atan2(att.pos.x - vic.pos.x, att.pos.y - vic.pos.y);
     att.prevFacing = att.facing; vic.prevFacing = vic.facing;
 
+    // ---- charge ramp: aura swells, energy pulses converge on the beat --------
+    if (t < 1.1) {
+      const cu = clamp01(t / 1.1);
+      this.effects.setAura(att, true, 0.6 + cu * 2.1);
+      const chestA = att.avatar.group.position.clone().setY(1.2);
+      for (const bt of [0.34, 0.62, 0.9]) {
+        if (t >= bt && this._chargeBeat < bt) {
+          this._chargeBeat = bt;
+          this.effects.chargeBurst(chestA, att.avatar.palette.accent);
+          this.audio.ultRiser();
+          this.hud.tint(this._accent, 0.3 + bt * 0.22, 300);
+          this.fightCam.addShake(0.12 + bt * 0.12);
+        }
+      }
+    }
+
     // ---- rush in --------------------------------------------------------------
     if (t >= 1.1 && !this._rushed) {
       this._rushed = true;
-      this.hud.flash(0.5, 120);
-      this.audio.dash();
+      this.hud.flash(0.6, 140, this._accent);   // accent whip flash
+      this.hud.speedLines(true);
+      this.hud.tint(this._accent, 0.5, 420);
+      this.audio.ultRush();
       this.effects.dashGhosts(att);
       this.effects.setAura(att, false);
       att._cineTrails = true;
+      this._fovPunch = -8;                       // whip zoom-in
     }
     if (t >= 1.1 && t < 1.35) {
       const u = EASE.outQuart(clamp01((t - 1.1) / 0.25));
@@ -99,8 +124,11 @@ export class UltimateCinematic {
       vic.anim.play(this._hits % 2 === 0 ? 'hitLight' : 'hitHeavy', { duration: 0.3, blend: 0.05 });
       const chest = vic.avatar.group.position.clone().setY(1.35);
       this.effects.impact(chest, att.avatar.palette.accent, this._hits % 3 === 0);
+      if (this._hits % 3 === 0) this.effects.shockwave(chest, att.avatar.palette.accent, 0.5);
       this.audio.ultImpact();
       this.fightCam.addShake(0.36);
+      this._fovPunch = -5.5;                       // impact zoom-punch each hit
+      this.hud.tint(this._accent, 0.22, 170);
       this.onDamage(ULT.DAMAGE * 0.62 / 8, false);
       // victim gets rocked backward a touch each hit
       this._setPos(vic, vic.pos.x + dir.x * 0.12, vic.pos.y + dir.y * 0.12);
@@ -112,10 +140,13 @@ export class UltimateCinematic {
     if (t >= 3.0 && !this._cut3Started) {
       this._cut3Started = true;
       att._cineTrails = false;
+      this.hud.speedLines(false);
       att.anim.play('ultFinal', { duration: 1.05, blend: 0.12 });
       vic.anim.play('stunned', { duration: 1.0, blend: 0.2 });
       this.audio.ultCharge();
-      this.effects.setAura(att, true);
+      this.audio.ultRiser();
+      this.effects.setAura(att, true, 2.4);
+      this.hud.tint(this._accent, 0.4, 520);
       att.avatar.setGloveGlow(1);
     }
 
@@ -124,14 +155,19 @@ export class UltimateCinematic {
       this._finalDone = true;
       this.effects.setAura(att, false);
       att.avatar.setGloveGlow(0);
-      this.hud.flash(0.95, 200);
+      this.hud.flash(1.0, 240);                 // white blast-out
+      this.hud.tint('#ffffff', 0.85, 400);
+      this.hud.damageVignette();
       this.audio.ultFinal();
       const chest = vic.avatar.group.position.clone().setY(1.5);
+      this.effects.shockwave(chest, att.avatar.palette.accent, 1.5);
       this.effects.impact(chest, 0xffffff, true);
       this.effects.koBurst(chest);
       this.fightCam.addShake(1.0);
+      this._fovPunch = 11;                       // violent kick-out
       this.onDamage(ULT.DAMAGE * 0.38, true);
       vic.anim.play('ko', { duration: 1.3, blend: 0.05 });
+      this._freeze = 0.14;                       // hold the impact frame
     }
     if (t >= 3.9 && t < 4.75) {
       // victim launched, skidding away
@@ -150,6 +186,7 @@ export class UltimateCinematic {
     this.active = false;
     this.att._cineTrails = false;
     this.effects.setAura(this.att, false);
+    this.hud.speedLines(false);
     this.fightCam.override = null;       // FightCamera glides back on its own
     this._vLaunch = null;
     this.onDone();
@@ -164,42 +201,56 @@ export class UltimateCinematic {
     const side3 = new THREE.Vector3(-dir3.z, 0, dir3.x);
 
     let pos = new THREE.Vector3(), look = new THREE.Vector3();
+    let fov = 55;
 
     if (t < 1.1) {
-      // cut 1: low arc orbit around the charging attacker
+      // cut 1: fast inward-spiraling orbit that rises around the charge
       const u = EASE.inOutCubic(clamp01(t / 1.1));
-      const ang = Math.atan2(-dir3.x, -dir3.z) + lerp(-0.9, 0.55, u);
-      const r = lerp(3.1, 2.3, u);
-      pos.set(A.x + Math.sin(ang) * r, lerp(0.7, 1.6, u), A.z + Math.cos(ang) * r);
+      const ang = Math.atan2(-dir3.x, -dir3.z) + lerp(-2.4, 1.15, u);
+      const r = lerp(3.7, 1.95, u);
+      pos.set(A.x + Math.sin(ang) * r, lerp(0.5, 1.78, u), A.z + Math.cos(ang) * r);
       look.set(A.x, 1.25, A.z);
+      fov = lerp(60, 52, u);
     } else if (t < 3.0) {
       // cut 2: side profile tracking the flurry, slow push-in
       const u = clamp01((t - 1.1) / 1.9);
       const mid = new THREE.Vector3().addVectors(A, V).multiplyScalar(0.5);
-      const r = lerp(4.6, 3.6, EASE.outQuad(u));
-      pos.copy(mid).addScaledVector(side3, r).setY(lerp(1.35, 1.6, u));
+      const r = lerp(4.6, 3.4, EASE.outQuad(u));
+      pos.copy(mid).addScaledVector(side3, r).setY(lerp(1.35, 1.62, u));
       look.copy(mid).setY(1.3);
+      fov = 56;
     } else if (t < 3.9) {
       // cut 3: reverse angle over the victim's shoulder, dolly toward the fist
       const u = EASE.outQuad(clamp01((t - 3.0) / 0.9));
-      pos.copy(V).addScaledVector(dir3, lerp(1.9, 1.45, u))
+      pos.copy(V).addScaledVector(dir3, lerp(1.95, 1.4, u))
         .addScaledVector(side3, -0.85)
-        .setY(lerp(1.7, 1.5, u));
+        .setY(lerp(1.75, 1.5, u));
       look.copy(A).setY(1.4);
+      fov = lerp(58, 50, u);
     } else {
-      // cut 4: wide shot whipping with the launched victim
+      // cut 4: LOW hero angle on the blow, then rise and pull to track the launch
       const u = clamp01((t - 3.9) / 1.3);
-      pos.copy(A).addScaledVector(side3, 5.4).addScaledVector(dir3, lerp(0.4, 2.6, EASE.outCubic(u)))
-        .setY(lerp(1.4, 2.2, u));
-      look.copy(V).setY(1.0);
+      pos.copy(A)
+        .addScaledVector(side3, lerp(1.5, 5.4, EASE.inOutCubic(u)))
+        .addScaledVector(dir3, lerp(-0.7, 2.6, EASE.outCubic(u)))
+        .setY(lerp(0.62, 2.2, EASE.outQuad(u)));
+      look.copy(A).lerp(V, EASE.inOutCubic(u) * 0.85).setY(lerp(1.12, 1.0, u));
+      fov = lerp(64, 55, EASE.outQuad(u));
     }
+
+    // impact zoom-punches (whip / flurry hits / final blow) decay smoothly
+    this._fovPunch *= Math.max(0, 1 - rdt * 8);
+    fov += this._fovPunch;
 
     cam.up.set(0, 1, 0);
     cam.position.copy(pos);
     cam.lookAt(look);
-    if (cam.fov !== 55) { cam.fov = 55; cam.updateProjectionMatrix(); }
+    if (Math.abs(cam.fov - fov) > 0.01) { cam.fov = fov; cam.updateProjectionMatrix(); }
   }
 }
+
+// 0x27e6ff -> "#27e6ff" for CSS overlay tints
+function hexStr(n) { return '#' + (n & 0xffffff).toString(16).padStart(6, '0'); }
 
 // ---------------------------------------------------------------------------
 // Perfect-dodge cutscene (~1.85s): the attacker's punch whiffs in heavy

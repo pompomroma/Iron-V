@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { damp, clamp, makeNoise1D } from '../engine/utils.js?v=10';
+import { damp, clamp, makeNoise1D } from '../engine/utils.js?v=11';
 
 // ---------------------------------------------------------------------------
 // Lock-on shoulder camera.
@@ -56,7 +56,7 @@ export class FightCamera {
     const f = _f.set(o.x - p.x, 0, o.z - p.z);
     const dist = Math.max(f.length(), 0.001);
     f.divideScalar(dist);
-    const back = BACK + clamp(dist - 3, 0, 8) * 0.09;       // subtle pullback when far apart
+    const back = BACK + clamp(dist - 2.6, 0, 9) * 0.16;     // pull back so both fighters stay framed
 
     // character right = (-f.z, 0, f.x)
     const pos = _idealPos.set(

@@ -72,7 +72,7 @@ export const BLOCK = {
 
 export const DASH = {
   DURATION: 0.32,
-  SPEED: 16.5,           // explosive burst, decays over duration
+  SPEED: 14.5,           // punchy burst without outrunning the frame
   IFRAMES: 0.22,         // invulnerable window from dash start
   PERFECT_WINDOW: 0.12,  // dodge inside this slice of the dash = PERFECT
   STAMINA: 20,

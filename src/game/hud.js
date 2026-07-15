@@ -22,6 +22,7 @@ export class HUD {
       roundCard: $('round-card'),
       roundTitle: $('round-title'), roundSub: $('round-sub'),
       flash: $('flash'), vignette: $('vignette'),
+      tint: $('cine-tint'), speedlines: $('speedlines'),
       lbTop: $('letterbox-top'), lbBottom: $('letterbox-bottom'),
       fps: $('fps-debug'),
       touch: $('touch-controls'),
@@ -87,8 +88,9 @@ export class HUD {
 
   hideRoundCard() { this.el.roundCard.classList.remove('show'); }
 
-  flash(opacity = 0.75, ms = 90) {
+  flash(opacity = 0.75, ms = 90, color = '#fff') {
     const f = this.el.flash;
+    f.style.background = color;
     f.style.transition = 'none';
     f.style.opacity = opacity;
     requestAnimationFrame(() => {
@@ -96,6 +98,20 @@ export class HUD {
       f.style.opacity = 0;
     });
   }
+
+  // accent-colored energy tint pulse (ultimate beats); decays to 0 over ms
+  tint(color = '#27e6ff', opacity = 0.5, ms = 260) {
+    const el = this.el.tint;
+    el.style.setProperty('--tint', color);
+    el.style.transition = 'none';
+    el.style.opacity = opacity;
+    requestAnimationFrame(() => {
+      el.style.transition = `opacity ${ms}ms ease-out`;
+      el.style.opacity = 0;
+    });
+  }
+
+  speedLines(on) { this.el.speedlines.classList.toggle('on', on); }
 
   damageVignette() {
     const v = this.el.vignette;

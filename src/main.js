@@ -1,24 +1,24 @@
 import * as THREE from 'three';
-import { detectTier, DynamicResolution } from './engine/quality.js?v=10';
-import { createRenderer, resizeRendererToDisplay } from './engine/renderer.js?v=10';
-import { GameLoop } from './engine/loop.js?v=10';
-import { buildArena } from './game/arena.js?v=10';
-import { buildBoxer } from './game/avatar.js?v=10';
-import { Fighter, resolvePair } from './game/fighter.js?v=10';
-import { HumanController, AIController } from './game/controller.js?v=10';
-import { InputSystem } from './game/input.js?v=10';
-import { FightCamera } from './game/camera.js?v=10';
-import { Effects } from './game/effects.js?v=10';
-import { AudioEngine } from './game/audio.js?v=10';
-import { HUD } from './game/hud.js?v=10';
-import { UltimateCinematic, PerfectDodgeCinematic } from './game/cinematic.js?v=10';
-import { PALETTES, ROUNDS, ULT, COUNTER, PDODGE } from './game/constants.js?v=10';
-import { clamp01, lerp, EASE, TAU } from './engine/utils.js?v=10';
+import { detectTier, DynamicResolution } from './engine/quality.js?v=11';
+import { createRenderer, resizeRendererToDisplay } from './engine/renderer.js?v=11';
+import { GameLoop } from './engine/loop.js?v=11';
+import { buildArena } from './game/arena.js?v=11';
+import { buildBoxer } from './game/avatar.js?v=11';
+import { Fighter, resolvePair } from './game/fighter.js?v=11';
+import { HumanController, AIController } from './game/controller.js?v=11';
+import { InputSystem } from './game/input.js?v=11';
+import { FightCamera } from './game/camera.js?v=11';
+import { Effects } from './game/effects.js?v=11';
+import { AudioEngine } from './game/audio.js?v=11';
+import { HUD } from './game/hud.js?v=11';
+import { UltimateCinematic, PerfectDodgeCinematic } from './game/cinematic.js?v=11';
+import { PALETTES, ROUNDS, ULT, COUNTER, PDODGE } from './game/constants.js?v=11';
+import { clamp01, lerp, EASE, TAU } from './engine/utils.js?v=11';
 
 // ---------------------------------------------------------------------------
 // boot
 // ---------------------------------------------------------------------------
-const BUILD = 'v10';
+const BUILD = 'v11';
 document.getElementById('build-tag').textContent = 'IRON V · build ' + BUILD;
 
 const canvas = document.getElementById('game-canvas');
@@ -152,16 +152,16 @@ function handleEvents() {
         audio.hit(heavy);
         effects.impact(chestOf(f), e.attacker.avatar.palette.accent, heavy);
         effects.setAura(f, false);          // an interrupted ult charge loses its aura
-        fightCam.addShake(heavy ? 0.55 : 0.28);
-        fightCam.fovKick(heavy ? -5 : -2);  // punchy FOV snap on every hit
+        fightCam.addShake(heavy ? 0.4 : 0.2);
+        if (heavy) fightCam.fovKick(-3);    // heavy-only FOV snap keeps framing stable
         if (f === p1) { hud.damageVignette(); input.clearAttackBuffer(); }
         break;
       }
       case 'counter': {
         audio.hit(e.kind === 'heavy', true);
         effects.impact(chestOf(f), 0xffd23e, true);
-        fightCam.addShake(0.8);
-        fightCam.fovKick(-7);
+        fightCam.addShake(0.58);
+        fightCam.fovKick(-4);
         hud.popupSide('COUNTER!', 'counter');
         setSlowmo(COUNTER.SLOWMO, COUNTER.SLOWMO_TIME);
         if (f === p1) { hud.damageVignette(); input.clearAttackBuffer(); }
@@ -212,9 +212,9 @@ function handleEvents() {
         effects.dashGhosts(f);
         effects.groundDust(f.avatar.group.position.clone(), 3);
         if (f === p1) {
-          fightCam.fovKick(13);
-          if (e.dir === 'dashL') fightCam.rollKick(-0.07);
-          else if (e.dir === 'dashR') fightCam.rollKick(0.07);
+          fightCam.fovKick(7);
+          if (e.dir === 'dashL') fightCam.rollKick(-0.05);
+          else if (e.dir === 'dashR') fightCam.rollKick(0.05);
         }
         break;
       }
@@ -508,4 +508,4 @@ document.getElementById('loading').remove();
 loop.start();
 
 // small debug/testing handle (also used by automated checks)
-window.__IRONV__ = { G, p1, p2, ai, input, loop, tier, dynres, effects, startMatch };
+window.__IRONV__ = { G, p1, p2, ai, input, loop, tier, dynres, effects, startMatch, camera, fightCam };

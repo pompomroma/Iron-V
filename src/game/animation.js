@@ -1,5 +1,5 @@
-import { EASE, clamp01, lerp, smoothstep, damp } from '../engine/utils.js?v=10';
-import { LIGHT, HEAVY } from './constants.js?v=10';
+import { EASE, clamp01, lerp, smoothstep, damp } from '../engine/utils.js?v=11';
+import { LIGHT, HEAVY } from './constants.js?v=11';
 
 // ---------------------------------------------------------------------------
 // Pose-keyframe animation with universal crossfade blending.
@@ -463,32 +463,34 @@ const CLIP_DEFS = {
     }, 'inOutCubic'),
   ], true),
 
-  // Dashes: the fighter DIGS LOW — a deep half-crouch slide (hips drop nearly
-  // half a meter, legs folded and tucked, torso pitched over the lead knee)
-  // that holds low through the slide and springs back up with overshoot.
+  // Dashes are BOXER SLIPS/ROLLS, not flat slides: the fighter digs low into a
+  // half-crouch and the upper body ROLLS through a weaving arc — the head
+  // traces a U, ducking under and rising on the far side, guard held high and
+  // i-frames covering the dig. Forward = duck-under drive; back = lean-back
+  // pull-counter; left/right = roll the head down-and-under to that side.
   dashF: bake([
     key(0, {}),
-    key(0.18, {                            // explosive low lunge — arms swept back hard
-      torso: [0.74, -0.1, 0], chest: [0.54, -0.15, 0], head: [-0.52, 0.14, 0],
-      hipsPos: [0, -0.54, 0.18],
-      shoulderL: [-1.7, 0.46, 0.32], elbowL: [-2.72, 0, 0.15],
-      shoulderR: [-1.6, -0.56, -0.32], elbowR: [-2.8, 0, -0.15],
+    key(0.16, {                            // bob down under the incoming punch
+      torso: [0.78, -0.1, 0.16], chest: [0.6, -0.15, 0.2], head: [0.34, 0.14, 0.16],
+      hipsPos: [0, -0.56, 0.16],
+      shoulderL: [-1.66, 0.46, 0.34], elbowL: [-2.68, 0, 0.15],
+      shoulderR: [-1.56, -0.56, -0.3], elbowR: [-2.76, 0, -0.15],
       thighL: [-0.72, 0.06, 0.03], thighR: [-0.58, -0.1, -0.03],
-      kneeL: [1.36, 0, 0], kneeR: [1.36, 0, 0],
+      kneeL: [1.38, 0, 0], kneeR: [1.38, 0, 0],
       footL: [-0.56, 0.06, 0], footR: [-0.6, -0.06, 0],
     }, 'outQuart'),
-    key(0.52, {
-      torso: [0.52, -0.1, 0], chest: [0.38, -0.15, 0], head: [-0.36, 0.14, 0],
-      hipsPos: [0, -0.38, 0.12],
-      shoulderL: [-1.42, 0.44, 0.3], elbowL: [-2.5, 0, 0.15],
-      shoulderR: [-1.32, -0.54, -0.3], elbowR: [-2.58, 0, -0.15],
-      thighL: [-0.52, 0.06, 0.03], thighR: [-0.42, -0.1, -0.03],
-      kneeL: [1.1, 0, 0], kneeR: [1.1, 0, 0],
-      footL: [-0.42, 0.06, 0], footR: [-0.46, -0.06, 0],
+    key(0.5, {                             // weave up through to the far side
+      torso: [0.44, -0.1, -0.14], chest: [0.32, -0.15, -0.16], head: [-0.28, 0.14, -0.14],
+      hipsPos: [0, -0.34, 0.12],
+      shoulderL: [-1.4, 0.44, 0.3], elbowL: [-2.48, 0, 0.15],
+      shoulderR: [-1.3, -0.54, -0.3], elbowR: [-2.56, 0, -0.15],
+      thighL: [-0.5, 0.06, 0.03], thighR: [-0.4, -0.1, -0.03],
+      kneeL: [1.06, 0, 0], kneeR: [1.06, 0, 0],
+      footL: [-0.4, 0.06, 0], footR: [-0.44, -0.06, 0],
     }, 'inOutCubic'),
-    key(0.82, {                            // landing catch — lead foot staggers out
-      torso: [0.22, -0.1, 0], chest: [0.16, -0.16, 0],
-      hipsPos: [0, -0.14, 0.04],
+    key(0.82, {                            // rise back to guard — lead foot catches
+      torso: [0.2, -0.1, -0.03], chest: [0.14, -0.16, -0.03], head: [-0.1, 0.14, -0.02],
+      hipsPos: [0, -0.13, 0.04],
       thighL: [-0.44, 0.06, 0.03], thighR: [0.0, -0.1, -0.03],
       kneeL: [0.6, 0, 0], kneeR: [0.42, 0, 0],
       footL: [-0.2, 0.06, 0], footR: [-0.28, -0.06, 0],
@@ -497,68 +499,95 @@ const CLIP_DEFS = {
   ]),
   dashB: bake([
     key(0, {}),
-    key(0.18, {
-      torso: [-0.42, -0.1, 0], chest: [-0.3, -0.18, 0], head: [0.18, 0.14, 0],
-      hipsPos: [0, -0.42, -0.12],
-      shoulderL: [-1.6, 0.5, 0.44], elbowL: [-2.55, 0, 0.15],
-      shoulderR: [-1.5, -0.54, -0.44], elbowR: [-2.65, 0, -0.15],
-      thighL: [-0.55, 0.06, 0.03], thighR: [-0.45, -0.1, -0.03],
-      kneeL: [1.15, 0, 0], kneeR: [1.15, 0, 0],
-      footL: [-0.45, 0.06, 0], footR: [-0.5, -0.06, 0],
+    key(0.16, {                            // snap the weight back — pull off the line
+      torso: [-0.5, -0.1, 0.12], chest: [-0.34, -0.17, 0.16], head: [0.12, 0.14, 0.1],
+      hipsPos: [0.04, -0.4, -0.18],
+      hips: [0.06, -0.28, 0.14],
+      shoulderL: [-1.52, 0.5, 0.42], elbowL: [-2.6, 0, 0.15],
+      shoulderR: [-1.44, -0.56, -0.4], elbowR: [-2.68, 0, -0.15],
+      thighL: [-0.5, 0.06, 0.05], thighR: [-0.42, -0.1, -0.03],
+      kneeL: [1.12, 0, 0], kneeR: [1.2, 0, 0],
+      footL: [-0.42, 0.06, 0], footR: [-0.48, -0.06, 0],
     }, 'outQuart'),
-    key(0.52, {
-      torso: [-0.32, -0.1, 0], chest: [-0.2, -0.18, 0], head: [0.12, 0.14, 0],
-      hipsPos: [0, -0.34, -0.1],
-      thighL: [-0.46, 0.06, 0.03], thighR: [-0.38, -0.1, -0.03],
-      kneeL: [0.98, 0, 0], kneeR: [0.98, 0, 0],
-      footL: [-0.38, 0.06, 0], footR: [-0.42, -0.06, 0],
+    key(0.5, {                             // roll through center as the weight resets
+      torso: [-0.34, -0.1, -0.06], chest: [-0.22, -0.17, -0.08], head: [0.06, 0.14, -0.05],
+      hipsPos: [-0.02, -0.32, -0.1],
+      hips: [0.06, -0.28, -0.05],
+      thighL: [-0.4, 0.06, 0.03], thighR: [-0.34, -0.1, -0.03],
+      kneeL: [0.9, 0, 0], kneeR: [0.96, 0, 0],
+      footL: [-0.34, 0.06, 0], footR: [-0.4, -0.06, 0],
     }, 'inOutCubic'),
+    key(0.82, {                            // roll back down into guard
+      torso: [-0.12, -0.1, -0.02], chest: [-0.06, -0.18, -0.02], head: [0.0, 0.14, 0],
+      hipsPos: [0, -0.14, -0.03],
+      thighL: [-0.34, 0.06, 0.03], thighR: [0.0, -0.1, -0.03],
+      kneeL: [0.5, 0, 0], kneeR: [0.4, 0, 0],
+      footL: [-0.16, 0.06, 0], footR: [-0.24, -0.06, 0],
+    }, 'outQuad'),
     key(1, {}, 'outBack'),
   ]),
   dashL: bake([
     key(0, {}),
-    key(0.18, {                            // low lateral slip — inside shoulder dips
-      hips: [0.06, -0.28, 0.5], torso: [0.14, -0.1, 0.34], chest: [0.12, -0.16, 0.18],
-      head: [-0.1, 0.14, -0.28],
-      hipsPos: [0, -0.46, 0],
-      thighL: [-0.66, 0.06, 0.08], thighR: [-0.36, -0.1, -0.05],
-      kneeL: [1.32, 0, 0], kneeR: [0.85, 0, 0],
-      footL: [-0.52, 0.06, 0], footR: [-0.4, -0.06, 0],
-      shoulderL: [-1.3, 0.44, 0.72],       // inside arm digs toward the sand
-      elbowL: [-2.2, 0, 0.2],
-      shoulderR: [-1.0, -0.62, -0.2],      // outside arm sweeps for balance
-      elbowR: [-1.9, 0, -0.15],
+    key(0.14, {                            // drop into the roll — duck down and in
+      hips: [0.06, -0.28, 0.32], torso: [0.4, -0.1, 0.34], chest: [0.32, -0.16, 0.28],
+      head: [0.24, 0.14, 0.16],
+      hipsPos: [0.06, -0.44, 0.06],
+      thighL: [-0.66, 0.06, 0.1], thighR: [-0.34, -0.1, -0.05],
+      kneeL: [1.34, 0, 0], kneeR: [0.9, 0, 0],
+      footL: [-0.52, 0.06, 0], footR: [-0.38, -0.06, 0],
+      shoulderL: [-1.34, 0.44, 0.66],      // inside arm digs, glove stays high
+      elbowL: [-2.3, 0, 0.2],
+      shoulderR: [-1.05, -0.6, -0.22],     // outside arm sweeps for balance
+      elbowR: [-2.0, 0, -0.15],
     }, 'outQuart'),
-    key(0.52, {
-      hips: [0.06, -0.28, 0.36], torso: [0.12, -0.1, 0.24], head: [-0.08, 0.14, -0.2],
-      hipsPos: [0, -0.37, 0],
-      thighL: [-0.55, 0.06, 0.08], thighR: [-0.3, -0.1, -0.05],
-      kneeL: [1.12, 0, 0], kneeR: [0.7, 0, 0],
-      footL: [-0.44, 0.06, 0], footR: [-0.34, -0.06, 0],
+    key(0.46, {                            // sweep through the bottom of the U to the left
+      hips: [0.06, -0.28, 0.5], torso: [0.2, -0.1, 0.46], chest: [0.16, -0.16, 0.4],
+      head: [-0.02, 0.14, 0.02],
+      hipsPos: [0.02, -0.4, 0.02],
+      thighL: [-0.56, 0.06, 0.12], thighR: [-0.3, -0.1, -0.05],
+      kneeL: [1.16, 0, 0], kneeR: [0.74, 0, 0],
+      footL: [-0.46, 0.06, 0], footR: [-0.34, -0.06, 0],
     }, 'inOutCubic'),
+    key(0.8, {                             // rise up on the left side back to guard
+      hips: [0.06, -0.28, 0.22], torso: [0.14, -0.1, 0.16], chest: [0.1, -0.17, 0.12],
+      head: [-0.1, 0.14, -0.06],
+      hipsPos: [0, -0.16, 0],
+      thighL: [-0.4, 0.06, 0.06], thighR: [-0.06, -0.1, -0.03],
+      kneeL: [0.6, 0, 0], kneeR: [0.42, 0, 0],
+      footL: [-0.2, 0.06, 0], footR: [-0.26, -0.06, 0],
+    }, 'outQuad'),
     key(1, {}, 'outBack'),
   ]),
   dashR: bake([
     key(0, {}),
-    key(0.18, {
-      hips: [0.06, -0.28, -0.5], torso: [0.14, -0.1, -0.34], chest: [0.12, -0.16, -0.18],
-      head: [-0.1, 0.14, 0.28],
-      hipsPos: [0, -0.46, 0],
-      thighR: [-0.66, -0.1, -0.08], thighL: [-0.36, 0.06, 0.05],
-      kneeR: [1.32, 0, 0], kneeL: [0.85, 0, 0],
-      footR: [-0.52, -0.06, 0], footL: [-0.4, 0.06, 0],
-      shoulderR: [-1.3, -0.44, -0.72],
-      elbowR: [-2.2, 0, -0.2],
-      shoulderL: [-1.0, 0.62, 0.2],
-      elbowL: [-1.9, 0, 0.15],
+    key(0.14, {                            // drop into the roll — duck down and in
+      hips: [0.06, -0.28, -0.32], torso: [0.4, -0.1, -0.34], chest: [0.32, -0.16, -0.28],
+      head: [0.24, 0.14, -0.16],
+      hipsPos: [-0.06, -0.44, 0.06],
+      thighR: [-0.66, -0.1, -0.1], thighL: [-0.34, 0.06, 0.05],
+      kneeR: [1.34, 0, 0], kneeL: [0.9, 0, 0],
+      footR: [-0.52, -0.06, 0], footL: [-0.38, 0.06, 0],
+      shoulderR: [-1.34, -0.44, -0.66],    // inside arm digs, glove stays high
+      elbowR: [-2.3, 0, -0.2],
+      shoulderL: [-1.05, 0.6, 0.22],       // outside arm sweeps for balance
+      elbowL: [-2.0, 0, 0.15],
     }, 'outQuart'),
-    key(0.52, {
-      hips: [0.06, -0.28, -0.36], torso: [0.12, -0.1, -0.24], head: [-0.08, 0.14, 0.2],
-      hipsPos: [0, -0.37, 0],
-      thighR: [-0.55, -0.1, -0.08], thighL: [-0.3, 0.06, 0.05],
-      kneeR: [1.12, 0, 0], kneeL: [0.7, 0, 0],
-      footR: [-0.44, -0.06, 0], footL: [-0.34, 0.06, 0],
+    key(0.46, {                            // sweep through the bottom of the U to the right
+      hips: [0.06, -0.28, -0.5], torso: [0.2, -0.1, -0.46], chest: [0.16, -0.16, -0.4],
+      head: [-0.02, 0.14, -0.02],
+      hipsPos: [-0.02, -0.4, 0.02],
+      thighR: [-0.56, -0.1, -0.12], thighL: [-0.3, 0.06, 0.05],
+      kneeR: [1.16, 0, 0], kneeL: [0.74, 0, 0],
+      footR: [-0.46, -0.06, 0], footL: [-0.34, 0.06, 0],
     }, 'inOutCubic'),
+    key(0.8, {                             // rise up on the right side back to guard
+      hips: [0.06, -0.28, -0.22], torso: [0.14, -0.1, -0.16], chest: [0.1, -0.17, -0.12],
+      head: [-0.1, 0.14, 0.06],
+      hipsPos: [0, -0.16, 0],
+      thighR: [-0.4, -0.1, -0.06], thighL: [-0.06, 0.06, 0.03],
+      kneeR: [0.6, 0, 0], kneeL: [0.42, 0, 0],
+      footR: [-0.2, -0.06, 0], footL: [-0.26, 0.06, 0],
+    }, 'outQuad'),
     key(1, {}, 'outBack'),
   ]),
 
@@ -816,35 +845,35 @@ function apply(pose, ctx) {
     const c = Math.cos(this._phase);
     const swing = Math.sin(this._phase - 0.5);
 
-    // legs — stride opens up at speed for a committed, driving run
-    const drive = 1 + sp * 0.35;
-    thighLx = s * 0.55 * drive * fwd * w;
-    thighRx = -s * 0.55 * drive * fwd * w;
-    thighLz = s * 0.26 * side * w;                       // side-step scissor
-    thighRz = -s * 0.26 * side * w;
-    kneeL = Math.pow(Math.max(0, swing), 1.2) * 0.6 * sp * w;   // swing-leg folds,
-    kneeR = Math.pow(Math.max(0, -swing), 1.2) * 0.6 * sp * w;  // stance leg stays long
-    footLx = c * 0.2 * fwd * w;                          // heel-strike → toe-off roll
-    footRx = -c * 0.2 * fwd * w;
+    // legs — stride opens up hard at speed for a committed, explosive run
+    const drive = 1 + sp * 0.5;
+    thighLx = s * 0.6 * drive * fwd * w;
+    thighRx = -s * 0.6 * drive * fwd * w;
+    thighLz = s * 0.28 * side * w;                       // side-step scissor
+    thighRz = -s * 0.28 * side * w;
+    kneeL = Math.pow(Math.max(0, swing), 1.2) * 0.66 * sp * w;  // swing-leg folds,
+    kneeR = Math.pow(Math.max(0, -swing), 1.2) * 0.66 * sp * w; // stance leg stays long
+    footLx = c * 0.22 * fwd * w;                         // heel-strike → toe-off roll
+    footRx = -c * 0.22 * fwd * w;
     footYaw = side * 0.12 * w;                           // toe-out into the strafe
 
     // pelvis drives, torso counters, head stays on target
-    hipsYaw = s * 0.07 * fwd * w;
-    hipsRoll = s * 0.055 * sp * w;                       // weight shifts over the stance foot
-    chestYaw = -s * 0.055 * fwd * w;
-    chestRoll = -s * 0.03 * sp * w;
+    hipsYaw = s * 0.08 * fwd * w;
+    hipsRoll = s * 0.062 * sp * w;                       // weight shifts over the stance foot
+    chestYaw = -s * 0.062 * fwd * w;
+    chestRoll = -s * 0.034 * sp * w;
     headYaw = -chestYaw * 0.6;                           // gaze pinned on the opponent
 
     // guarded arm counter-swing — fuller drive, opens up at speed
-    shL = -s * 0.16 * drive * fwd * w;
-    shR = s * 0.16 * drive * fwd * w;
-    elL = -s * 0.12 * fwd * w;
-    elR = s * 0.12 * fwd * w;
+    shL = -s * 0.19 * drive * fwd * w;
+    shR = s * 0.19 * drive * fwd * w;
+    elL = -s * 0.14 * fwd * w;
+    elR = s * 0.14 * fwd * w;
 
-    bobY = Math.abs(c) * 0.062 * sp * w;                 // more visible vertical drive
-    hipShift = s * 0.03 * sp * w;                        // lateral sway with the weight
-    leanX = fwd * (0.11 + sp * 0.16) * w;                // steep committed lean at a sprint
-    leanZ = -side * (0.09 + sp * 0.06) * w;              // hard bank into strafe runs
+    bobY = Math.abs(c) * 0.072 * sp * w;                 // stronger vertical drive
+    hipShift = s * 0.034 * sp * w;                       // lateral sway with the weight
+    leanX = fwd * (0.12 + sp * 0.2) * w;                 // steep committed lean at a sprint
+    leanZ = -side * (0.1 + sp * 0.08) * w;               // hard bank into strafe runs
   }
 
   // ---- groovy boxer bounce ---------------------------------------------------
@@ -858,15 +887,15 @@ function apply(pose, ctx) {
     this._bounce = (this._bounce || 0) + dt * 2.15 * Math.PI * 2;
     const bs = Math.sin(this._bounce);
     const bc = Math.cos(this._bounce);
-    bnHipY = Math.abs(bc) * 0.05 * bw;                   // spring on the balls of the feet
-    bnHipRoll = bs * 0.05 * bw;                          // rock the weight side to side
-    bnHipX = bs * 0.028 * bw;
-    bnKneeL = Math.max(0, bs) * 0.14 * bw;               // loaded knee gives
-    bnKneeR = Math.max(0, -bs) * 0.14 * bw;
-    bnChestRoll = -bs * 0.03 * bw;                       // torso counters the hips
-    bnShL = bs * 0.03 * bw;                              // shoulders roll with it
-    bnShR = -bs * 0.03 * bw;
-    bnHeadY = bs * 0.02 * bw;                            // subtle head bob
+    bnHipY = Math.abs(bc) * 0.058 * bw;                  // spring on the balls of the feet
+    bnHipRoll = bs * 0.058 * bw;                         // rock the weight side to side
+    bnHipX = bs * 0.032 * bw;
+    bnKneeL = Math.max(0, bs) * 0.16 * bw;               // loaded knee gives
+    bnKneeR = Math.max(0, -bs) * 0.16 * bw;
+    bnChestRoll = -bs * 0.034 * bw;                      // torso counters the hips
+    bnShL = bs * 0.034 * bw;                             // shoulders roll with it
+    bnShR = -bs * 0.034 * bw;
+    bnHeadY = bs * 0.024 * bw;                           // subtle head bob
   }
 
   // breathing (always on — fighters never look frozen), now on top of the groove

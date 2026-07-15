@@ -120,6 +120,16 @@ export class AudioEngine {
     this._noise({ dur: 1.15, filter: 'bandpass', freq: 300, sweepTo: 3400, q: 3, gain: 0.34 });
     this._tone({ type: 'sawtooth', freq: 70, sweepTo: 420, dur: 1.15, gain: 0.16 });
   }
+  // pitched energy riser for the charge beats + final windup
+  ultRiser() {
+    this._noise({ dur: 0.5, filter: 'bandpass', freq: 520, sweepTo: 4200, q: 4, gain: 0.2 });
+    this._tone({ type: 'sawtooth', freq: 190, sweepTo: 940, dur: 0.5, gain: 0.12 });
+  }
+  // blitz whoosh as the attacker closes the gap
+  ultRush() {
+    this._noise({ dur: 0.34, filter: 'bandpass', freq: 900, sweepTo: 220, q: 1.2, gain: 0.42 });
+    this._tone({ type: 'sawtooth', freq: 460, sweepTo: 80, dur: 0.32, gain: 0.2 });
+  }
   ultImpact() {
     this.hit(true);
     this._tone({ type: 'sine', freq: 90, sweepTo: 30, dur: 0.5, gain: 0.9, when: 0.01 });
@@ -127,7 +137,9 @@ export class AudioEngine {
   ultFinal() {
     this._noise({ dur: 0.16, filter: 'lowpass', freq: 4000, gain: 1 });
     this._tone({ type: 'sine', freq: 170, sweepTo: 26, dur: 1.2, gain: 1.1 });
+    this._tone({ type: 'sine', freq: 62, sweepTo: 20, dur: 1.5, gain: 0.95, when: 0.02 });   // deep sub boom
     this._noise({ dur: 1.4, filter: 'lowpass', freq: 500, gain: 0.5, when: 0.04 });
+    this._noise({ dur: 0.3, filter: 'highpass', freq: 3000, gain: 0.42 });                    // bright crack
     this._tone({ type: 'triangle', freq: 1500, sweepTo: 2400, dur: 0.5, gain: 0.14, when: 0.02 });
   }
   perfectDodge() {

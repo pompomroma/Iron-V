@@ -1,5 +1,5 @@
-import { EASE, clamp01, lerp, smoothstep, damp } from '../engine/utils.js?v=8';
-import { LIGHT, HEAVY } from './constants.js?v=8';
+import { EASE, clamp01, lerp, smoothstep, damp } from '../engine/utils.js?v=9';
+import { LIGHT, HEAVY } from './constants.js?v=9';
 
 // ---------------------------------------------------------------------------
 // Pose-keyframe animation with universal crossfade blending.
@@ -790,9 +790,10 @@ function apply(pose, ctx) {
   const speed01 = ctx.speed01 || 0;
   const dt = ctx.dt || 0.016;
 
-  // locomotion layer weight eases in/out (no snapping when actions start/end)
+  // locomotion layer weight eases in/out (no snapping when actions start/end;
+  // tight λ so the walk engages/disengages crisply on key press/release)
   const wantLoco = this.clip.locomotion && speed01 > 0.02 ? 1 : 0;
-  this._locoW = damp(this._locoW, wantLoco, 10, dt);
+  this._locoW = damp(this._locoW, wantLoco, 13, dt);
   const w = this._locoW;
 
   // ---- full walking gait ----------------------------------------------------
@@ -833,20 +834,43 @@ function apply(pose, ctx) {
     chestRoll = -s * 0.03 * sp * w;
     headYaw = -chestYaw * 0.6;                           // gaze pinned on the opponent
 
-    // guarded arm counter-swing (subtle — the guard never drops)
-    shL = -s * 0.12 * fwd * w;
-    shR = s * 0.12 * fwd * w;
-    elL = -s * 0.09 * fwd * w;
-    elR = s * 0.09 * fwd * w;
+    // guarded arm counter-swing — fuller drive for a denser stride
+    shL = -s * 0.16 * fwd * w;
+    shR = s * 0.16 * fwd * w;
+    elL = -s * 0.12 * fwd * w;
+    elR = s * 0.12 * fwd * w;
 
-    bobY = Math.abs(c) * 0.045 * sp * w;
-    hipShift = s * 0.02 * sp * w;                        // lateral sway with the weight
+    bobY = Math.abs(c) * 0.062 * sp * w;                 // more visible vertical drive
+    hipShift = s * 0.03 * sp * w;                        // lateral sway with the weight
     leanX = fwd * 0.11 * w;                              // lean into approach/retreat
     leanZ = -side * 0.09 * w;                            // bank into strafe
   }
-  // breathing / idle sway (always on — fighters never look frozen)
-  const br = Math.sin(this._t * 2.1) * 0.024;
-  const sway = Math.sin(this._t * 1.3) * 0.024;
+
+  // ---- groovy boxer bounce ---------------------------------------------------
+  // Always-on rhythm on grounded states (idle / block / walk), strongest at a
+  // standstill and fading as the stride gait takes over — the constant
+  // bounce-on-the-balls-of-the-feet weight-shift real boxers never stop doing.
+  let bnHipY = 0, bnHipRoll = 0, bnHipX = 0, bnKneeL = 0, bnKneeR = 0;
+  let bnChestRoll = 0, bnShL = 0, bnShR = 0, bnHeadY = 0;
+  if (this.clip.locomotion) {
+    const bw = (1 - w) * 0.9 + 0.1;                      // full at idle, ~10% while walking
+    this._bounce = (this._bounce || 0) + dt * 2.15 * Math.PI * 2;
+    const bs = Math.sin(this._bounce);
+    const bc = Math.cos(this._bounce);
+    bnHipY = Math.abs(bc) * 0.05 * bw;                   // spring on the balls of the feet
+    bnHipRoll = bs * 0.05 * bw;                          // rock the weight side to side
+    bnHipX = bs * 0.028 * bw;
+    bnKneeL = Math.max(0, bs) * 0.14 * bw;               // loaded knee gives
+    bnKneeR = Math.max(0, -bs) * 0.14 * bw;
+    bnChestRoll = -bs * 0.03 * bw;                       // torso counters the hips
+    bnShL = bs * 0.03 * bw;                              // shoulders roll with it
+    bnShR = -bs * 0.03 * bw;
+    bnHeadY = bs * 0.02 * bw;                            // subtle head bob
+  }
+
+  // breathing (always on — fighters never look frozen), now on top of the groove
+  const br = Math.sin(this._t * 2.1) * 0.02;
+  const sway = Math.sin(this._t * 1.3) * 0.02;
   // stun tremble (added after the low-pass so it isn't filtered away)
   const tr = this.clip.tremble
     ? () => (Math.random() - 0.5) * 2 * this.clip.tremble
@@ -866,18 +890,18 @@ function apply(pose, ctx) {
     let [x, y, z] = pose[j];
     if (j === 'thighL') { x += thighLx; z += thighLz; }
     if (j === 'thighR') { x += thighRx; z += thighRz; }
-    if (j === 'kneeL') x += kneeL;
-    if (j === 'kneeR') x += kneeR;
+    if (j === 'kneeL') x += kneeL + bnKneeL;
+    if (j === 'kneeR') x += kneeR + bnKneeR;
     if (j === 'footL') { x += footLx; y += footYaw; }
     if (j === 'footR') { x += footRx; y += footYaw; }
-    if (j === 'hips') { y += hipsYaw; z += hipsRoll; }
-    if (j === 'shoulderL') x += shL;
-    if (j === 'shoulderR') x += shR;
+    if (j === 'hips') { y += hipsYaw; z += hipsRoll + bnHipRoll; }
+    if (j === 'shoulderL') x += shL + bnShL;
+    if (j === 'shoulderR') x += shR + bnShR;
     if (j === 'elbowL') x += elL;
     if (j === 'elbowR') x += elR;
     if (j === 'torso') { x += leanX + br * 0.4; z += leanZ; }
-    if (j === 'chest') { x += br; y += sway * 0.5 + chestYaw; z += chestRoll; }
-    if (j === 'head') { y += sway + headYaw; }
+    if (j === 'chest') { x += br; y += sway * 0.5 + chestYaw; z += chestRoll + bnChestRoll; }
+    if (j === 'head') { y += sway + headYaw + bnHeadY; }
 
     let s = sm[j];
     if (!s) s = sm[j] = [x, y, z];
@@ -894,8 +918,8 @@ function apply(pose, ctx) {
   }
 
   const hp = pose.hipsPos;
-  const hx = hp[0] + hipShift;
-  const hy = J.hips.userData.baseY + hp[1] + bobY + br * 0.3;
+  const hx = hp[0] + hipShift + bnHipX;
+  const hy = J.hips.userData.baseY + hp[1] + bobY + bnHipY + br * 0.3;
   let hs = sm.hipsPos;
   if (!hs) hs = sm.hipsPos = [hx, hy, hp[2]];
   else {

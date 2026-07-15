@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { ARENA } from './constants.js?v=8';
-import { canvasTexture, mulberry32, randRange, TAU, mergeGeometries } from '../engine/utils.js?v=8';
+import { ARENA } from './constants.js?v=9';
+import { canvasTexture, mulberry32, randRange, TAU, mergeGeometries } from '../engine/utils.js?v=9';
 
 // Original noir arena: wind-rippled monochrome sand, a ring of dark shattered
 // rock slabs, a huge pale moon low on the horizon, heavy fog. High contrast so

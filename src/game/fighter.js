@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import {
   FIGHTER, LIGHT, HEAVY, FEINT, BLOCK, DASH, STAMINA, COUNTER, ULT, ARENA, CHAIN_WINDOW,
-} from './constants.js?v=8';
-import { AnimPlayer } from './animation.js?v=8';
-import { clamp, clamp01, angleDamp, damp } from '../engine/utils.js?v=8';
+} from './constants.js?v=9';
+import { AnimPlayer } from './animation.js?v=9';
+import { clamp, clamp01, angleDamp, damp } from '../engine/utils.js?v=9';
 
 const ATTACKS = { light: LIGHT, heavy: HEAVY };
 
@@ -457,10 +457,11 @@ export class Fighter {
     g.rotation.y = this.prevFacing + df * alpha;
 
     // damp the locomotion drivers so leans and strides ramp instead of snap
+    // (tight λ — the body lean tracks input crisply for a snappy feel)
     const speed01 = clamp01(this.vel.length() / FIGHTER.FORWARD_SPEED);
-    this._speedSmooth = damp(this._speedSmooth, speed01, 9, rdt);
-    this._moveSmooth.x = damp(this._moveSmooth.x, this.moveIntent.x, 9, rdt);
-    this._moveSmooth.y = damp(this._moveSmooth.y, this.moveIntent.y, 9, rdt);
+    this._speedSmooth = damp(this._speedSmooth, speed01, 14, rdt);
+    this._moveSmooth.x = damp(this._moveSmooth.x, this.moveIntent.x, 14, rdt);
+    this._moveSmooth.y = damp(this._moveSmooth.y, this.moveIntent.y, 14, rdt);
     this.anim.update(rdt, {
       dt: rdt,
       moveX: this._moveSmooth.x,

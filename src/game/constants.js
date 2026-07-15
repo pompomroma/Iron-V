@@ -13,8 +13,8 @@ export const FIGHTER = {
   WALK_SPEED: 4.1,       // strafe (A/D)
   FORWARD_SPEED: 4.6,    // approach (W)
   BACK_SPEED: 3.4,       // retreat (S)
-  ACCEL: 26,             // ground acceleration (gliding, reference-style)
-  FRICTION: 12,
+  ACCEL: 44,             // ground acceleration — snappy start/stop response
+  FRICTION: 19,
   MAX_TURN: 8,           // lock-on facing speed cap (rad/s) — kills point-blank spin
   LUNGE_STOP: 1.7,       // attack lunge disengages for good below this distance
 

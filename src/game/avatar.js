@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { roundedBoxGeometry, canvasTexture } from '../engine/utils.js?v=9';
+import { roundedBoxGeometry, canvasTexture } from '../engine/utils.js?v=10';
 
 // ---------------------------------------------------------------------------
 // Original procedural boxer: soft-beveled blocky silhouette with real detail —
@@ -312,11 +312,42 @@ export function buildBoxer(p /* palette */, variant = 0) {
       fromRoot.traverse((o) => list.push(o));
       return list;
     },
+
+    // --- squash & stretch --------------------------------------------------
+    // The root origin sits at the feet, so non-uniform root scale reads as
+    // clean cartoon squash/stretch. Impulses kick a spring that snaps back
+    // to (1,1,1); axes are local — x sideways, y vertical, z forward/facing.
+    _sq: [1, 1, 1],
+    _sqv: [0, 0, 0],
+    // impulses SET the deformed pose directly (guaranteed visible pop); the
+    // spring in updateStretch then snaps it back toward 1 with a little bounce
+    _set(x, y, z) { this._sq[0] = x; this._sq[1] = y; this._sq[2] = z; this._sqv[0] = this._sqv[1] = this._sqv[2] = 0; },
+    stretchDash()  { this._set(0.84, 0.9, 1.22); },      // thin + long along travel
+    stretchPunch() { this._set(0.93, 0.95, 1.13); },     // lunge toward the blow
+    squashHit()    { this._set(1.17, 0.82, 1.06); },     // wide + short recoil
+    squashLand()   { this._set(1.13, 0.86, 0.98); },     // absorb the dash stop
+    resetStretch() { this._sq[0] = this._sq[1] = this._sq[2] = 1; this._sqv[0] = this._sqv[1] = this._sqv[2] = 0; root.scale.set(1, 1, 1); },
+    updateStretch(rdt) {
+      const dt = Math.min(rdt, 0.05);
+      const K = 200, D = 20;                              // springy, slight overshoot
+      let moving = false;
+      for (let i = 0; i < 3; i++) {
+        const a = -K * (this._sq[i] - 1) - D * this._sqv[i];
+        this._sqv[i] += a * dt;
+        this._sq[i] += this._sqv[i] * dt;
+        this._sq[i] = clampScale(this._sq[i]);           // never turn inside-out
+        if (Math.abs(this._sq[i] - 1) > 0.002 || Math.abs(this._sqv[i]) > 0.01) moving = true;
+      }
+      if (moving) root.scale.set(this._sq[0], this._sq[1], this._sq[2]);
+      else if (root.scale.x !== 1) root.scale.set(1, 1, 1);
+    },
   };
   // build the ghost-flash material up front (avoids a first-dash shader stall)
   ghostMaterial(p);
   return api;
 }
+
+function clampScale(v) { return v < 0.7 ? 0.7 : v > 1.4 ? 1.4 : v; }
 
 let _ghostMats = new Map();
 function ghostMaterial(p) {

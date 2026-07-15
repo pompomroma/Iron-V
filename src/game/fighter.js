@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import {
   FIGHTER, LIGHT, HEAVY, FEINT, BLOCK, DASH, STAMINA, COUNTER, ULT, ARENA, CHAIN_WINDOW,
-} from './constants.js?v=9';
-import { AnimPlayer } from './animation.js?v=9';
-import { clamp, clamp01, angleDamp, damp } from '../engine/utils.js?v=9';
+} from './constants.js?v=10';
+import { AnimPlayer } from './animation.js?v=10';
+import { clamp, clamp01, angleDamp, damp } from '../engine/utils.js?v=10';
 
 const ATTACKS = { light: LIGHT, heavy: HEAVY };
 
@@ -80,6 +80,7 @@ export class Fighter {
     this.avatar.setGhost(0);
     this.avatar.setGloveGlow(0);
     this.avatar.setTelegraph(0);
+    this.avatar.resetStretch();
     this.anim.play('idle', { duration: 1, blend: 0.25 });
   }
 
@@ -98,6 +99,7 @@ export class Fighter {
       this.dashInfo = null; this.avatar.setGhost(0);   // a cutscene can start mid-dash
       this.avatar.setTelegraph(0);
       this.avatar.setGloveGlow(0);
+      this.avatar.resetStretch();
     }
     else if (this.state === 'cinematic') { this.state = 'idle'; this.stateT = 0; this.anim.play('idle', { duration: 1, blend: 0.2, restart: false }); }
   }
@@ -268,6 +270,7 @@ export class Fighter {
       if (!a.hasHit && opp && this.distanceTo(opp) <= C.RANGE) {
         a.hasHit = true;
         this.avatar.setGloveGlow(0);
+        this.avatar.stretchPunch();               // lunge-stretch toward the blow
         opp.receiveHit(this, C, a.kind);
       }
       if (a.t >= C.ACTIVE) {
@@ -316,6 +319,7 @@ export class Fighter {
     this.blocking = false;
     this.dashInfo = { x: dir.x, z: dir.y, t: 0 };
     this.dashCooldown = DASH.COOLDOWN + DASH.DURATION;
+    this.avatar.stretchDash();                         // explosive streak-stretch
 
     // pick the directional dash clip (relative to facing)
     const fwdAmt = dir.dot(f), sideAmt = dir.dot(rgt);
@@ -352,6 +356,7 @@ export class Fighter {
     this.avatar.setGhost(d.t < DASH.IFRAMES ? 1 : 0);
     if (d.t >= DASH.DURATION) {
       this.avatar.setGhost(0);
+      this.avatar.squashLand();                        // absorb the stop
       this.state = 'idle'; this.stateT = 0; this.dashInfo = null;
       this.anim.play('idle', { duration: 1, blend: 0.18, restart: false });
     }
@@ -413,6 +418,7 @@ export class Fighter {
     this.attack = null;
     this.avatar.setGloveGlow(0);
     this.avatar.setTelegraph(0);
+    this.avatar.squashHit();                          // wide-short recoil pop
     this.vel.addScaledVector(away, C.KNOCKBACK);
 
     if (this.hp <= 0) {
@@ -468,6 +474,7 @@ export class Fighter {
       moveZ: this._moveSmooth.y,
       speed01: this._speedSmooth,
     });
+    this.avatar.updateStretch(rdt);      // squash & stretch spring
   }
 }
 

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { canvasTexture, randRange, TAU, clamp01 } from '../engine/utils.js?v=9';
+import { canvasTexture, randRange, TAU, clamp01 } from '../engine/utils.js?v=10';
 
 // ---------------------------------------------------------------------------
 // All VFX: additive sprite pools (flashes, rings, sparks, smoke), glove energy
@@ -113,7 +113,7 @@ export class Effects {
   // Dashes then reuse these instead of deep-cloning the avatar mid-fight.
   registerFighter(fighter) {
     const rigs = [];
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 6; i++) {
       const obj = fighter.avatar.cloneGhost(0.5);
       rigs.push({
         obj,
@@ -251,12 +251,14 @@ export class Effects {
 
   // ---- glove trails + dash dust (call every render frame) --------------------
   updateTrails(fighters, rdt) {
-    // dug-in dashes spray sand from the feet for the whole slide
+    // dug-in dashes spray sand from the feet AND streak speed-lines behind
     if (!this._dashDust) this._dashDust = new Map();
+    if (!this._dashLine) this._dashLine = new Map();
     for (const f of fighters) {
-      if (f.state !== 'dash') { this._dashDust.set(f, 0); continue; }
-      let heat = (this._dashDust.get(f) || 0) + rdt * 14 * this.k;
+      if (f.state !== 'dash') { this._dashDust.set(f, 0); this._dashLine.set(f, 0); continue; }
       const g = f.avatar.group.position;
+      const dir = f.dashInfo || { x: 0, z: 0 };
+      let heat = (this._dashDust.get(f) || 0) + rdt * 14 * this.k;
       while (heat > 1) {
         heat -= 1;
         _scratch.set(g.x + randRange(-0.3, 0.3), 0.12, g.z + randRange(-0.3, 0.3));
@@ -269,6 +271,26 @@ export class Effects {
         });
       }
       this._dashDust.set(f, heat);
+
+      // speed lines: bright streaks trailing along the travel axis
+      let lh = (this._dashLine.get(f) || 0) + rdt * 40 * this.k;
+      const ang = Math.atan2(dir.x, dir.z);
+      while (lh > 1) {
+        lh -= 1;
+        const back = randRange(0.1, 0.6);
+        _scratch.set(
+          g.x - dir.x * back + randRange(-0.35, 0.35),
+          randRange(0.5, 1.7),
+          g.z - dir.z * back + randRange(-0.35, 0.35)
+        );
+        this.spawn({
+          tex: this.tex.spark, color: f.avatar.palette.trail,
+          pos: _scratch,
+          vel: new THREE.Vector3(-dir.x * randRange(6, 11), 0, -dir.z * randRange(6, 11)),
+          life: randRange(0.1, 0.2), size: randRange(0.6, 1.1), rotation: -ang,
+        });
+      }
+      this._dashLine.set(f, lh);
     }
 
     for (const f of fighters) {
@@ -304,22 +326,27 @@ export class Effects {
   // ---- discrete events --------------------------------------------------------
   impact(pos, color, heavy = false) {
     const k = this.k;
-    this.spawn({ tex: this.tex.dot, color: 0xffffff, pos, life: 0.12, size: heavy ? 2.6 : 1.6, grow: 6, opacity: 0.95 });
-    this.spawn({ tex: this.tex.dot, color, pos, life: 0.22, size: heavy ? 1.8 : 1.1, grow: 3 });
-    this.spawn({ tex: this.tex.ring, color, pos, life: heavy ? 0.34 : 0.24, size: 0.5, grow: heavy ? 13 : 8, opacity: 0.9 });
-    const n = Math.round((heavy ? 15 : 9) * k);
+    // bright core
+    this.spawn({ tex: this.tex.dot, color: 0xffffff, pos, life: 0.13, size: heavy ? 3.2 : 2.0, grow: 8, opacity: 1 });
+    this.spawn({ tex: this.tex.dot, color, pos, life: 0.24, size: heavy ? 2.2 : 1.4, grow: 4 });
+    // impact ring
+    this.spawn({ tex: this.tex.ring, color, pos, life: heavy ? 0.36 : 0.26, size: 0.5, grow: heavy ? 15 : 10, opacity: 0.95 });
+    // fast-expanding shockwave ring — the "extreme" pop
+    this.spawn({ tex: this.tex.ring, color: 0xffffff, pos, life: heavy ? 0.3 : 0.22, size: 0.4,
+      grow: heavy ? 34 : 22, opacity: 0.85 });
+    const n = Math.round((heavy ? 24 : 13) * k);
     for (let i = 0; i < n; i++) {
-      const a = Math.random() * TAU, sp = randRange(3, heavy ? 9 : 6);
+      const a = Math.random() * TAU, sp = randRange(4, heavy ? 13 : 8);
       this.spawn({
         tex: this.tex.spark, color: Math.random() < 0.5 ? color : 0xffffff,
         pos: pos.clone(),
-        vel: new THREE.Vector3(Math.cos(a) * sp, randRange(0.5, 3.4), Math.sin(a) * sp),
-        life: randRange(0.25, 0.5), size: randRange(0.3, 0.7),
+        vel: new THREE.Vector3(Math.cos(a) * sp, randRange(0.5, 4.2), Math.sin(a) * sp),
+        life: randRange(0.25, 0.55), size: randRange(0.35, 0.85),
         gravity: 12, rotation: -a,
       });
     }
     if (heavy) {
-      this.groundDust(new THREE.Vector3(pos.x, 0.05, pos.z), 5);
+      this.groundDust(new THREE.Vector3(pos.x, 0.05, pos.z), 6);
     }
   }
 
@@ -383,8 +410,8 @@ export class Effects {
 
   dashGhosts(fighter) {
     this.ghostQueue.push(
-      { fighter, t: 0 }, { fighter, t: 0.055 },
-      { fighter, t: 0.11 }, { fighter, t: 0.17 }
+      { fighter, t: 0 }, { fighter, t: 0.04 }, { fighter, t: 0.08 },
+      { fighter, t: 0.12 }, { fighter, t: 0.16 }, { fighter, t: 0.2 }
     );
   }
   _spawnGhostNow(fighter) {

@@ -1,5 +1,5 @@
-import { EASE, clamp01, lerp, smoothstep, damp } from '../engine/utils.js?v=9';
-import { LIGHT, HEAVY } from './constants.js?v=9';
+import { EASE, clamp01, lerp, smoothstep, damp } from '../engine/utils.js?v=10';
+import { LIGHT, HEAVY } from './constants.js?v=10';
 
 // ---------------------------------------------------------------------------
 // Pose-keyframe animation with universal crossfade blending.
@@ -137,20 +137,20 @@ function makeJab(C) {
       kneeL: [0.44, 0, 0],
       footR: [-0.18, 0.18, 0],            // rear foot already turning
     }, 'outQuad'),
-    key(w + (a - w) * 0.45, {             // full extension — the fist arrives last
-      chest: [0.16, 0.3, -0.02],
-      torso: [0.2, 0.14, 0],
-      hips: [0.1, -0.02, 0],
-      hipsPos: [0, -0.085, 0.1],
-      shoulderL: [-1.62, 0.18, 0.14],     // protracted + shoulder shrugs into it
-      elbowL: [-0.04, 0, 0],
-      gloveL: [-1.3, 0, 1.25],            // fist pronates through the punch
-      shoulderR: [-0.76, -0.58, -0.36],   // rear guard stays home
+    key(w + (a - w) * 0.45, {             // full extension — EXPLOSIVE whole-body drive
+      chest: [0.2, 0.42, -0.03],
+      torso: [0.26, 0.2, 0],
+      hips: [0.14, 0.02, 0],
+      hipsPos: [0, -0.075, 0.2],          // big weight throw behind the fist
+      shoulderL: [-1.72, 0.22, 0.2],      // deeper protraction + shrug
+      elbowL: [-0.02, 0, 0],
+      gloveL: [-1.35, 0, 1.35],           // hard pronation snap
+      shoulderR: [-0.7, -0.62, -0.4],     // rear guard stays home
       elbowR: [-2.55, 0, -0.1],
-      head: [0.06, 0.08, -0.06],          // chin dips behind the shrug
-      neck: [0.04, 0.1, 0],
-      kneeL: [0.42, 0, 0],                // front knee gives a touch
-      footR: [-0.16, 0.32, 0],            // rear foot pivots on the ball
+      head: [0.1, 0.06, -0.08],           // chin drives down behind the shrug
+      neck: [0.06, 0.08, 0],
+      kneeL: [0.5, 0, 0],                 // front knee loads under the weight
+      footR: [-0.14, 0.42, 0],            // rear foot snaps onto the ball
     }, 'outQuart'),
     key(a + 0.04, {                       // follow-through — elbow whip settles
       chest: [0.17, 0.34, -0.02],
@@ -259,33 +259,33 @@ function makeHeavy(C) {
       footR: [-0.18, 0.4, 0],             // rear foot grinding through the pivot
       footL: [-0.12, 0.1, 0],
     }, 'outQuad'),
-    key(w + (a - w) * 0.5, {              // the hook lands — flat horizontal arc
-      chest: [0.14, 0.8, -0.05],
-      torso: [0.2, 0.42, 0],
-      hips: [0.1, 0.55, 0],
-      hipsPos: [0.08, -0.125, 0.1],       // weight slams across to the lead side
-      shoulderR: [-1.5, 0.55, 0.25],      // upper arm stays level through the swing
-      elbowR: [-1.35, 0, -0.05],          // ARM STAYS BENT — that's the hook
-      gloveR: [-0.35, 0, -1.1],           // palm rolls down
-      shoulderL: [-1.05, 0.52, 0.35],
+    key(w + (a - w) * 0.5, {              // the hook LANDS — explosive flat arc
+      chest: [0.16, 1.02, -0.07],         // huge torso whip through the target
+      torso: [0.26, 0.56, 0],
+      hips: [0.12, 0.72, 0],
+      hipsPos: [0.12, -0.1, 0.14],        // full weight slams across + forward
+      shoulderR: [-1.52, 0.72, 0.28],     // upper arm stays level through the swing
+      elbowR: [-1.32, 0, -0.05],          // ARM STAYS BENT — that's the hook
+      gloveR: [-0.38, 0, -1.2],           // palm rolls down hard
+      shoulderL: [-1.02, 0.54, 0.36],
       elbowL: [-2.5, 0, 0.14],
-      head: [0.06, -0.02, -0.04],         // chin tucked behind the lead shoulder
-      neck: [0, 0.04, 0],
-      kneeL: [0.46, 0, 0],
-      kneeR: [0.36, 0, 0],
-      footR: [-0.15, 0.9, 0],             // rear foot pivots hard on the ball
-      footL: [-0.12, 0.2, 0],
+      head: [0.06, -0.08, -0.05],         // chin tucked behind the lead shoulder
+      neck: [0, 0.0, 0],
+      kneeL: [0.44, 0, 0],
+      kneeR: [0.32, 0, 0],
+      footR: [-0.12, 1.05, 0],            // rear foot whips hard on the ball
+      footL: [-0.12, 0.24, 0],
     }, 'outQuart'),
     key(a + 0.06, {                       // wraps across — rear shoulder shrugs up,
-      chest: [0.16, 0.95, -0.07],         // lead shoulder dips under it
-      torso: [0.22, 0.48, 0],
-      shoulderR: [-1.42, 0.78, 0.42],
-      elbowR: [-1.6, 0, -0.05],
-      gloveR: [-0.4, 0, -1.0],
-      shoulderL: [-0.95, 0.5, 0.25],
-      head: [0.08, -0.06, -0.05],
-      hipsPos: [0.1, -0.135, 0.08],
-      footR: [-0.15, 1.0, 0],
+      chest: [0.18, 1.22, -0.1],          // over-rotates past the target, lead dips
+      torso: [0.28, 0.6, 0],
+      shoulderR: [-1.38, 0.98, 0.48],
+      elbowR: [-1.62, 0, -0.05],
+      gloveR: [-0.42, 0, -1.05],
+      shoulderL: [-0.9, 0.52, 0.24],
+      head: [0.08, -0.14, -0.06],
+      hipsPos: [0.15, -0.12, 0.1],
+      footR: [-0.14, 1.15, 0],
     }, 'outQuad'),
     key(a + (1 - a) * 0.45, {             // recoil toward guard
       chest: [0.1, -0.02, 0],
@@ -468,14 +468,14 @@ const CLIP_DEFS = {
   // that holds low through the slide and springs back up with overshoot.
   dashF: bake([
     key(0, {}),
-    key(0.18, {                            // arms pump in with the drop
-      torso: [0.6, -0.1, 0], chest: [0.44, -0.15, 0], head: [-0.42, 0.14, 0],
-      hipsPos: [0, -0.46, 0.14],
-      shoulderL: [-1.55, 0.44, 0.3], elbowL: [-2.62, 0, 0.15],
-      shoulderR: [-1.45, -0.54, -0.3], elbowR: [-2.7, 0, -0.15],
-      thighL: [-0.62, 0.06, 0.03], thighR: [-0.5, -0.1, -0.03],
-      kneeL: [1.28, 0, 0], kneeR: [1.28, 0, 0],
-      footL: [-0.5, 0.06, 0], footR: [-0.55, -0.06, 0],
+    key(0.18, {                            // explosive low lunge — arms swept back hard
+      torso: [0.74, -0.1, 0], chest: [0.54, -0.15, 0], head: [-0.52, 0.14, 0],
+      hipsPos: [0, -0.54, 0.18],
+      shoulderL: [-1.7, 0.46, 0.32], elbowL: [-2.72, 0, 0.15],
+      shoulderR: [-1.6, -0.56, -0.32], elbowR: [-2.8, 0, -0.15],
+      thighL: [-0.72, 0.06, 0.03], thighR: [-0.58, -0.1, -0.03],
+      kneeL: [1.36, 0, 0], kneeR: [1.36, 0, 0],
+      footL: [-0.56, 0.06, 0], footR: [-0.6, -0.06, 0],
     }, 'outQuart'),
     key(0.52, {
       torso: [0.52, -0.1, 0], chest: [0.38, -0.15, 0], head: [-0.36, 0.14, 0],
@@ -816,9 +816,10 @@ function apply(pose, ctx) {
     const c = Math.cos(this._phase);
     const swing = Math.sin(this._phase - 0.5);
 
-    // legs
-    thighLx = s * 0.55 * fwd * w;
-    thighRx = -s * 0.55 * fwd * w;
+    // legs — stride opens up at speed for a committed, driving run
+    const drive = 1 + sp * 0.35;
+    thighLx = s * 0.55 * drive * fwd * w;
+    thighRx = -s * 0.55 * drive * fwd * w;
     thighLz = s * 0.26 * side * w;                       // side-step scissor
     thighRz = -s * 0.26 * side * w;
     kneeL = Math.pow(Math.max(0, swing), 1.2) * 0.6 * sp * w;   // swing-leg folds,
@@ -834,16 +835,16 @@ function apply(pose, ctx) {
     chestRoll = -s * 0.03 * sp * w;
     headYaw = -chestYaw * 0.6;                           // gaze pinned on the opponent
 
-    // guarded arm counter-swing — fuller drive for a denser stride
-    shL = -s * 0.16 * fwd * w;
-    shR = s * 0.16 * fwd * w;
+    // guarded arm counter-swing — fuller drive, opens up at speed
+    shL = -s * 0.16 * drive * fwd * w;
+    shR = s * 0.16 * drive * fwd * w;
     elL = -s * 0.12 * fwd * w;
     elR = s * 0.12 * fwd * w;
 
     bobY = Math.abs(c) * 0.062 * sp * w;                 // more visible vertical drive
     hipShift = s * 0.03 * sp * w;                        // lateral sway with the weight
-    leanX = fwd * 0.11 * w;                              // lean into approach/retreat
-    leanZ = -side * 0.09 * w;                            // bank into strafe
+    leanX = fwd * (0.11 + sp * 0.16) * w;                // steep committed lean at a sprint
+    leanZ = -side * (0.09 + sp * 0.06) * w;              // hard bank into strafe runs
   }
 
   // ---- groovy boxer bounce ---------------------------------------------------

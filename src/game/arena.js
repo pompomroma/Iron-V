@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { ARENA } from './constants.js?v=11';
-import { canvasTexture, mulberry32, randRange, TAU, mergeGeometries } from '../engine/utils.js?v=11';
+import { ARENA } from './constants.js?v=12';
+import { canvasTexture, mulberry32, randRange, TAU, mergeGeometries } from '../engine/utils.js?v=12';
 
 // Original noir arena: wind-rippled monochrome sand, a ring of dark shattered
 // rock slabs, a huge pale moon low on the horizon, heavy fog. High contrast so
@@ -147,8 +147,10 @@ export function buildArena(scene, tier) {
   key.position.set(-22, 26, -30);
   key.castShadow = true;
   key.shadow.mapSize.setScalar(tier.shadow);
-  key.shadow.camera.left = -18; key.shadow.camera.right = 18;
-  key.shadow.camera.top = 18; key.shadow.camera.bottom = -18;
+  // frustum tightened to just cover the arena + edge-shadow throw: raises texel
+  // density (sharper shadows per map size) so a smaller map stays crisp
+  key.shadow.camera.left = -16; key.shadow.camera.right = 16;
+  key.shadow.camera.top = 16; key.shadow.camera.bottom = -16;
   key.shadow.camera.near = 5; key.shadow.camera.far = 90;
   key.shadow.bias = -0.0004;
   key.shadow.normalBias = 0.02;

@@ -1,9 +1,13 @@
 import * as THREE from 'three';
 
 export function createRenderer(canvas, tier) {
+  // At a high device-pixel-ratio the panel density already resolves edges, so
+  // MSAA is largely redundant — skipping it there frees a chunk of GPU budget
+  // for framerate while edges stay clean from the dense backing store.
+  const dpr = window.devicePixelRatio || 1;
   const renderer = new THREE.WebGLRenderer({
     canvas,
-    antialias: tier.antialias,
+    antialias: tier.antialias && dpr < 2,
     powerPreference: 'high-performance',
     stencil: false,
   });

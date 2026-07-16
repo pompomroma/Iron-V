@@ -1,5 +1,5 @@
-import { EASE, clamp01, lerp, smoothstep, damp } from '../engine/utils.js?v=11';
-import { LIGHT, HEAVY } from './constants.js?v=11';
+import { EASE, clamp01, lerp, smoothstep, damp } from '../engine/utils.js?v=12';
+import { LIGHT, HEAVY } from './constants.js?v=12';
 
 // ---------------------------------------------------------------------------
 // Pose-keyframe animation with universal crossfade blending.

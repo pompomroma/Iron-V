@@ -1,24 +1,24 @@
 import * as THREE from 'three';
-import { detectTier, DynamicResolution } from './engine/quality.js?v=11';
-import { createRenderer, resizeRendererToDisplay } from './engine/renderer.js?v=11';
-import { GameLoop } from './engine/loop.js?v=11';
-import { buildArena } from './game/arena.js?v=11';
-import { buildBoxer } from './game/avatar.js?v=11';
-import { Fighter, resolvePair } from './game/fighter.js?v=11';
-import { HumanController, AIController } from './game/controller.js?v=11';
-import { InputSystem } from './game/input.js?v=11';
-import { FightCamera } from './game/camera.js?v=11';
-import { Effects } from './game/effects.js?v=11';
-import { AudioEngine } from './game/audio.js?v=11';
-import { HUD } from './game/hud.js?v=11';
-import { UltimateCinematic, PerfectDodgeCinematic } from './game/cinematic.js?v=11';
-import { PALETTES, ROUNDS, ULT, COUNTER, PDODGE } from './game/constants.js?v=11';
-import { clamp01, lerp, EASE, TAU } from './engine/utils.js?v=11';
+import { detectTier, DynamicResolution } from './engine/quality.js?v=12';
+import { createRenderer, resizeRendererToDisplay } from './engine/renderer.js?v=12';
+import { GameLoop } from './engine/loop.js?v=12';
+import { buildArena } from './game/arena.js?v=12';
+import { buildBoxer } from './game/avatar.js?v=12';
+import { Fighter, resolvePair } from './game/fighter.js?v=12';
+import { HumanController, AIController } from './game/controller.js?v=12';
+import { InputSystem } from './game/input.js?v=12';
+import { FightCamera } from './game/camera.js?v=12';
+import { Effects } from './game/effects.js?v=12';
+import { AudioEngine } from './game/audio.js?v=12';
+import { HUD } from './game/hud.js?v=12';
+import { UltimateCinematic, PerfectDodgeCinematic } from './game/cinematic.js?v=12';
+import { PALETTES, ROUNDS, ULT, COUNTER, PDODGE } from './game/constants.js?v=12';
+import { clamp01, lerp, EASE, TAU } from './engine/utils.js?v=12';
 
 // ---------------------------------------------------------------------------
 // boot
 // ---------------------------------------------------------------------------
-const BUILD = 'v11';
+const BUILD = 'v12';
 document.getElementById('build-tag').textContent = 'IRON V · build ' + BUILD;
 
 const canvas = document.getElementById('game-canvas');
@@ -410,6 +410,7 @@ const loop = new GameLoop({
   frameRendered: (renderMs) => dynres.frame(renderMs),
   governor: {
     getRefresh: () => dynres.refresh,
+    atFloor: () => dynres.scale <= dynres.tier.minPR + 1e-3,   // resolution can't drop further
     onGovern: (fps) => { dynres.targetFps = fps; },
   },
 });

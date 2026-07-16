@@ -1,4 +1,4 @@
-import { clamp } from './utils.js?v=11';
+import { clamp } from './utils.js?v=12';
 
 // ---------------------------------------------------------------------------
 // Device tier detection + real-time dynamic resolution.
@@ -40,7 +40,7 @@ export function detectTier() {
     // when frames blow budget, so capable devices render at full native DPR.
     LOW:  { shadow: 1024, maxPR: Math.min(dpr, 2.0), minPR: 0.75, particles: 0.5, dust: false, antialias: false, softShadow: false, floorSeg: 64 },
     MED:  { shadow: 2048, maxPR: dpr,                minPR: 0.9,  particles: 1.0, dust: true,  antialias: true,  softShadow: true,  floorSeg: 96 },
-    HIGH: { shadow: 4096, maxPR: dpr,                minPR: 1.0,  particles: 1.6, dust: true,  antialias: true,  softShadow: true,  floorSeg: 96 },
+    HIGH: { shadow: 2048, maxPR: dpr,                minPR: 1.0,  particles: 1.6, dust: true,  antialias: true,  softShadow: true,  floorSeg: 96 },
   };
   return { name, isTouch, gpu, ...tiers[name] };
 }
@@ -94,15 +94,17 @@ export class DynamicResolution {
     if (this._holdTimer < 450) return;   // evaluate ~2×/second
     this._holdTimer = 0;
 
-    // Hysteresis: shrink quickly when dropping frames, but only GROW after
-    // sustained headroom — every setPixelRatio() reallocates the drawing
-    // buffer, and oscillating around a threshold reads as periodic stutter.
+    // Hysteresis: HOLD resolution for sharpness — only drop it on a sizable,
+    // sustained overload (sharpness is preferred over squeezing out the last
+    // frames; the relaxed governor keeps the framerate uncapped meanwhile).
+    // Every setPixelRatio() reallocates the drawing buffer, so grow only after
+    // sustained headroom — oscillating around a threshold reads as stutter.
     const budget = 1000 / (this.targetFps || this.refresh);
     this._stable = this._stable || 0;
     let next = this.scale;
 
-    if (this.emaFrame > budget * 1.22) {
-      next = this.scale * 0.85;                        // shrink fast when dropping
+    if (this.emaFrame > budget * 1.4) {
+      next = this.scale * 0.85;                        // shrink only on a real overload
       this._stable = 0;
     } else if (this.emaFrame < budget * 0.82) {
       this._stable++;

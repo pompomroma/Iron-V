@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { canvasTexture, randRange, TAU, clamp01 } from '../engine/utils.js?v=11';
+import { canvasTexture, randRange, TAU, clamp01 } from '../engine/utils.js?v=12';
 
 // ---------------------------------------------------------------------------
 // All VFX: additive sprite pools (flashes, rings, sparks, smoke), glove energy
@@ -98,6 +98,10 @@ export class Effects {
       shield: [texShield(0), texShield(2), texShield(5)],
     };
     this.pool = [];               // live sprites
+    // hard ceiling on simultaneously-live sprites — high enough that normal
+    // play and the full ultimate never reach it, but it caps pathological
+    // overdraw so a runaway burst can't tank the frame budget
+    this._maxLive = Math.round(280 + 140 * this.k);   // LOW~350 · MED~420 · HIGH~504
     this._free = [];              // recycled sprite records (no GC churn)
     this.ghosts = [];             // live dash afterimages
     this.ghostQueue = [];         // scheduled afterimage spawns
@@ -147,6 +151,7 @@ export class Effects {
   // ---- sprite pool (recycled — spawning effects never allocates mid-fight) --
   spawn({ tex, color = 0xffffff, pos, vel = null, life = 0.3, size = 1, grow = 0,
           fade = true, gravity = 0, spin = 0, opacity = 1, rotation = 0, blending = THREE.AdditiveBlending }) {
+    if (this.pool.length >= this._maxLive) return null;   // overdraw guard (see _maxLive)
     let rec = this._free.pop();
     if (!rec) {
       const mat = new THREE.SpriteMaterial({

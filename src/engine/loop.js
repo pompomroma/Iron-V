@@ -8,11 +8,13 @@
 //                                      interpolation factor 0..1
 //   frameRendered(renderMs)          — fed to the dynamic-resolution monitor
 //
-// Governor: high-refresh displays (120 Hz+) that can't hold native refresh get
-// an erratic 70–100 fps cadence that looks worse than a locked 60. When >40%
-// of frames blow the native budget over ~2 s, rendering locks to refresh/2
-// (sim still runs every rAF) — a perfectly even cadence, and the resolution
-// scaler can then climb against the achievable budget. Sticky per session.
+// Governor: native refresh is the target — a 120/144/240 Hz display renders at
+// its FULL rate so motion gets the maximum number of frames. The resolution
+// scaler holds the native-refresh budget first (trading a little sharpness on
+// devices that need it). Only as a LAST RESORT — when the scaler is already
+// pinned at its floor AND frames stay catastrophically over budget for a long
+// stretch — does rendering settle onto an even, still-high cadence (never below
+// ~2/3 refresh) to convert an erratic judder into a smooth one. Sticky.
 export class GameLoop {
   constructor({ fixedDt = 1 / 60, update, render, frameBegin, frameRendered, governor }) {
     this.fixedDt = fixedDt;
@@ -65,19 +67,27 @@ export class GameLoop {
     if (steps === 8) this._acc = 0;      // death-spiral guard
 
     // ---- frame governor ------------------------------------------------------
+    // Default: never cap — render every vsync at native refresh. Only accumulate
+    // toward a governed cadence when the resolution scaler is already exhausted
+    // (can't lower res any further to help) and frames are CATASTROPHICALLY over
+    // budget across a long window. Even then the fallback is a high even cadence,
+    // not a hard halving.
     this._sinceRenderMs += dtMs;
     if (this.governor && !this.renderTargetFps) {
       const refresh = this.governor.getRefresh();
-      if (refresh > 90) {
+      const resExhausted = this.governor.atFloor ? this.governor.atFloor() : true;
+      if (refresh > 90 && resExhausted) {
         this._govMs += dtMs; this._govFrames++;
-        if (dtMs > (1000 / refresh) * 1.15) this._govMiss++;
-        if (this._govMs > 2000) {
-          if (this._govMiss / this._govFrames > 0.4) {
-            this.renderTargetFps = Math.max(60, Math.round(refresh / 2));
+        if (dtMs > (1000 / refresh) * 1.5) this._govMiss++;      // catastrophic only
+        if (this._govMs > 4000) {                                // long observation window
+          if (this._govMiss / this._govFrames > 0.6) {
+            this.renderTargetFps = Math.max(72, Math.round(refresh * 2 / 3));
             this.governor.onGovern && this.governor.onGovern(this.renderTargetFps);
           }
           this._govMs = 0; this._govMiss = 0; this._govFrames = 0;
         }
+      } else {
+        this._govMs = 0; this._govMiss = 0; this._govFrames = 0;   // has headroom / res not yet exhausted
       }
     }
     if (this.renderTargetFps &&

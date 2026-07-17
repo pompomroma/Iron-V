@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { roundedBoxGeometry, canvasTexture } from '../engine/utils.js?v=12';
+import { roundedBoxGeometry, canvasTexture } from '../engine/utils.js?v=13';
 
 // ---------------------------------------------------------------------------
 // Original procedural boxer: soft-beveled blocky silhouette with real detail —
@@ -17,6 +17,11 @@ import { roundedBoxGeometry, canvasTexture } from '../engine/utils.js?v=12';
 // ---------------------------------------------------------------------------
 
 const HIP_Y = 0.98;
+// Shorter, stockier boxer build (fixes the lanky/awkward look): the root origin
+// sits at the feet, so scaling the root keeps the feet planted and just lowers
+// the top. Y is reduced a touch more than X/Z so the silhouette reads compact
+// rather than merely smaller. Folded through the squash/stretch spring below.
+const BODY_SCALE = [0.95, 0.88, 0.95];
 
 function std(color, opts = {}) {
   return new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.02, ...opts });
@@ -112,6 +117,7 @@ function torsoTexture(p) {
 
 export function buildBoxer(p /* palette */, variant = 0) {
   const root = new THREE.Group();
+  root.scale.set(BODY_SCALE[0], BODY_SCALE[1], BODY_SCALE[2]);   // shorter/stockier build
   const J = {};   // joints
   const M = {};   // notable meshes
 
@@ -243,7 +249,7 @@ export function buildBoxer(p /* palette */, variant = 0) {
     joints: J,
     meshes: M,
     palette: p,
-    height: 2.06,
+    height: 2.06 * BODY_SCALE[1],   // ~1.81 — shorter build
 
     // punch charge glow (0..1) — brightens gloves + accent
     setGloveGlow(intensity) {
@@ -326,7 +332,7 @@ export function buildBoxer(p /* palette */, variant = 0) {
     stretchPunch() { this._set(0.94, 0.96, 1.11); },     // lunge toward the blow
     squashHit()    { this._set(1.13, 0.87, 1.05); },     // wide + short recoil
     squashLand()   { this._set(1.1, 0.88, 0.98); },      // absorb the dash stop
-    resetStretch() { this._sq[0] = this._sq[1] = this._sq[2] = 1; this._sqv[0] = this._sqv[1] = this._sqv[2] = 0; root.scale.set(1, 1, 1); },
+    resetStretch() { this._sq[0] = this._sq[1] = this._sq[2] = 1; this._sqv[0] = this._sqv[1] = this._sqv[2] = 0; root.scale.set(BODY_SCALE[0], BODY_SCALE[1], BODY_SCALE[2]); },
     updateStretch(rdt) {
       const dt = Math.min(rdt, 0.05);
       const K = 200, D = 20;                              // springy, slight overshoot
@@ -338,8 +344,8 @@ export function buildBoxer(p /* palette */, variant = 0) {
         this._sq[i] = clampScale(this._sq[i]);           // never turn inside-out
         if (Math.abs(this._sq[i] - 1) > 0.002 || Math.abs(this._sqv[i]) > 0.01) moving = true;
       }
-      if (moving) root.scale.set(this._sq[0], this._sq[1], this._sq[2]);
-      else if (root.scale.x !== 1) root.scale.set(1, 1, 1);
+      if (moving) root.scale.set(BODY_SCALE[0] * this._sq[0], BODY_SCALE[1] * this._sq[1], BODY_SCALE[2] * this._sq[2]);
+      else if (root.scale.x !== BODY_SCALE[0]) root.scale.set(BODY_SCALE[0], BODY_SCALE[1], BODY_SCALE[2]);
     },
   };
   // build the ghost-flash material up front (avoids a first-dash shader stall)

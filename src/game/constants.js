@@ -6,7 +6,7 @@ export const ARENA = {
 };
 
 export const FIGHTER = {
-  HEIGHT: 2.06,
+  HEIGHT: 1.81,          // shorter, stockier build (see avatar BODY_SCALE)
   BODY_RADIUS: 0.62,     // for pair separation
   MIN_SEPARATION: 1.42,  // fighters push apart below this distance
 

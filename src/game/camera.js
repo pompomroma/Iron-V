@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { damp, clamp, makeNoise1D } from '../engine/utils.js?v=12';
+import { damp, clamp, makeNoise1D } from '../engine/utils.js?v=13';
 
 // ---------------------------------------------------------------------------
 // Lock-on shoulder camera.
@@ -13,8 +13,8 @@ import { damp, clamp, makeNoise1D } from '../engine/utils.js?v=12';
 
 const BACK = 3.9;           // distance behind the player
 const SIDE = 1.34;          // offset to the right of the right shoulder
-const HEIGHT = 2.72;        // camera height (player is ~2.06 tall)
-const LOOK_HEIGHT = 1.3;    // aim at the opponent's upper chest → slight down pitch
+const HEIGHT = 2.55;        // camera height (player is ~1.81 tall — shorter build)
+const LOOK_HEIGHT = 1.18;   // aim at the opponent's upper chest → slight down pitch
 
 export class FightCamera {
   constructor(camera) {

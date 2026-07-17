@@ -1,5 +1,5 @@
-import { EASE, clamp01, lerp, smoothstep, damp } from '../engine/utils.js?v=13';
-import { LIGHT, HEAVY } from './constants.js?v=13';
+import { EASE, clamp01, lerp, smoothstep, damp } from '../engine/utils.js?v=14';
+import { LIGHT, HEAVY } from './constants.js?v=14';
 
 // ---------------------------------------------------------------------------
 // Pose-keyframe animation with universal crossfade blending.
@@ -968,7 +968,7 @@ function catmull1(p0, p1, p2, p3, t) {
     (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
     (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
   const lo = p1 < p2 ? p1 : p2, hi = p1 < p2 ? p2 : p1;
-  const m = (hi - lo) * 0.3 + 1e-4;
+  const m = (hi - lo) * 0.12 + 1e-4;   // tight overshoot — natural follow-through, never rubber-limbed
   return v < lo - m ? lo - m : (v > hi + m ? hi + m : v);
 }
 

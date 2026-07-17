@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import {
   FIGHTER, LIGHT, HEAVY, FEINT, BLOCK, DASH, STAMINA, COUNTER, ULT, ARENA, CHAIN_WINDOW,
-} from './constants.js?v=13';
-import { AnimPlayer } from './animation.js?v=13';
-import { clamp, clamp01, angleDamp, damp } from '../engine/utils.js?v=13';
+} from './constants.js?v=14';
+import { AnimPlayer } from './animation.js?v=14';
+import { clamp, clamp01, angleDamp, damp } from '../engine/utils.js?v=14';
 
 const ATTACKS = { light: LIGHT, heavy: HEAVY };
 
@@ -164,7 +164,7 @@ export class Fighter {
       // blue-shine charge delay — the opponent can dodge or block during it
       this.state = 'ultwind'; this.stateT = 0;
       this.blocking = false;
-      this.anim.play('ultCharge', { duration: ULT.WINDUP, blend: 0.12 });
+      this.anim.play('ultCharge', { duration: ULT.WINDUP, blend: 0.08 });
       this.emit('ultWindup');
       return;
     } else if (intent.dash && this.dashCooldown === 0) {
@@ -190,10 +190,10 @@ export class Fighter {
     this.vel.y = approach(this.vel.y, desired.y, FIGHTER.ACCEL * dt);
 
     // anim: block / idle loop
-    this.anim.play(this.blocking ? 'block' : 'idle', { duration: this.blocking ? 1.2 : 1, blend: 0.14, restart: false });
+    this.anim.play(this.blocking ? 'block' : 'idle', { duration: this.blocking ? 1.2 : 1, blend: 0.09, restart: false });
   }
 
-  _startAttack(kind, blend = 0.1) {
+  _startAttack(kind, blend = 0.055) {   // snap the windup in fast for instant response
     const C = ATTACKS[kind];
     if (!this._spendStamina(C.STAMINA)) return false;
     const side = kind === 'light' ? this._jabSide : 'R';
@@ -463,11 +463,11 @@ export class Fighter {
     g.rotation.y = this.prevFacing + df * alpha;
 
     // damp the locomotion drivers so leans and strides ramp instead of snap
-    // (tight λ — the body lean tracks input crisply for a snappy feel)
+    // (very tight λ — the body lean tracks input almost instantly for a snappy feel)
     const speed01 = clamp01(this.vel.length() / FIGHTER.FORWARD_SPEED);
-    this._speedSmooth = damp(this._speedSmooth, speed01, 14, rdt);
-    this._moveSmooth.x = damp(this._moveSmooth.x, this.moveIntent.x, 14, rdt);
-    this._moveSmooth.y = damp(this._moveSmooth.y, this.moveIntent.y, 14, rdt);
+    this._speedSmooth = damp(this._speedSmooth, speed01, 21, rdt);
+    this._moveSmooth.x = damp(this._moveSmooth.x, this.moveIntent.x, 21, rdt);
+    this._moveSmooth.y = damp(this._moveSmooth.y, this.moveIntent.y, 21, rdt);
     this.anim.update(rdt, {
       dt: rdt,
       moveX: this._moveSmooth.x,

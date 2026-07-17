@@ -96,8 +96,8 @@ export class InputSystem {
     let moveX = (d.has('KeyD') || d.has('ArrowRight') ? 1 : 0) - (d.has('KeyA') || d.has('ArrowLeft') ? 1 : 0);
     let moveY = (d.has('KeyW') || d.has('ArrowUp') ? 1 : 0) - (d.has('KeyS') || d.has('ArrowDown') ? 1 : 0);
     if (this.joy.active) {
-      moveX = Math.abs(this.joy.x) > 0.18 ? this.joy.x : 0;
-      moveY = Math.abs(this.joy.y) > 0.18 ? this.joy.y : 0;
+      moveX = Math.abs(this.joy.x) > 0.14 ? this.joy.x : 0;   // tighter deadzone → reacts sooner
+      moveY = Math.abs(this.joy.y) > 0.14 ? this.joy.y : 0;
     }
     const intent = {
       moveX, moveY,

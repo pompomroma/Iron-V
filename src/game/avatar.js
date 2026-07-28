@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { roundedBoxGeometry, canvasTexture } from '../engine/utils.js?v=14';
+import { roundedBoxGeometry, canvasTexture } from '../engine/utils.js?v=15';
 
 // ---------------------------------------------------------------------------
 // Original procedural boxer: soft-beveled blocky silhouette with real detail —

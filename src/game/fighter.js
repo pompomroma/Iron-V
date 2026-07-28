@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import {
   FIGHTER, LIGHT, HEAVY, FEINT, BLOCK, DASH, STAMINA, COUNTER, ULT, ARENA, CHAIN_WINDOW,
-} from './constants.js?v=14';
-import { AnimPlayer } from './animation.js?v=14';
-import { clamp, clamp01, angleDamp, damp } from '../engine/utils.js?v=14';
+} from './constants.js?v=15';
+import { AnimPlayer } from './animation.js?v=15';
+import { clamp, clamp01, angleDamp, damp } from '../engine/utils.js?v=15';
 
 const ATTACKS = { light: LIGHT, heavy: HEAVY };
 

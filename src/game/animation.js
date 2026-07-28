@@ -1,5 +1,5 @@
-import { EASE, clamp01, lerp, smoothstep, damp } from '../engine/utils.js?v=14';
-import { LIGHT, HEAVY } from './constants.js?v=14';
+import { EASE, clamp01, lerp, smoothstep, damp } from '../engine/utils.js?v=15';
+import { LIGHT, HEAVY } from './constants.js?v=15';
 
 // ---------------------------------------------------------------------------
 // Pose-keyframe animation with universal crossfade blending.
@@ -839,26 +839,37 @@ function apply(pose, ctx) {
     leanZ = -side * (0.1 + sp * 0.08) * w;               // hard bank into strafe runs
   }
 
-  // ---- groovy boxer bounce ---------------------------------------------------
-  // Always-on rhythm on grounded states (idle / block / walk), strongest at a
-  // standstill and fading as the stride gait takes over — the constant
-  // bounce-on-the-balls-of-the-feet weight-shift real boxers never stop doing.
+  // ---- U-line bob-and-weave groove --------------------------------------------
+  // The whole body continuously traces a smooth "U": hips and head sweep side
+  // to side (sin φ) while dipping through the center crossing (vertical at
+  // DOUBLE frequency, cos 2φ) — the rhythmic weave real boxers never stop.
+  // Always on: full at a standstill, still clearly visible while moving, and
+  // attenuated (but never zero) during attacks/dashes so the body keeps waving
+  // instead of freezing into a stiff straight pose mid-action.
   let bnHipY = 0, bnHipRoll = 0, bnHipX = 0, bnKneeL = 0, bnKneeR = 0;
-  let bnChestRoll = 0, bnShL = 0, bnShR = 0, bnHeadY = 0;
-  if (this.clip.locomotion) {
-    const bw = (1 - w) * 0.9 + 0.1;                      // full at idle, ~10% while walking
-    this._bounce = (this._bounce || 0) + dt * 2.15 * Math.PI * 2;
-    const bs = Math.sin(this._bounce);
-    const bc = Math.cos(this._bounce);
-    bnHipY = Math.abs(bc) * 0.058 * bw;                  // spring on the balls of the feet
-    bnHipRoll = bs * 0.058 * bw;                         // rock the weight side to side
-    bnHipX = bs * 0.032 * bw;
-    bnKneeL = Math.max(0, bs) * 0.16 * bw;               // loaded knee gives
-    bnKneeR = Math.max(0, -bs) * 0.16 * bw;
-    bnChestRoll = -bs * 0.034 * bw;                      // torso counters the hips
-    bnShL = bs * 0.034 * bw;                             // shoulders roll with it
-    bnShR = -bs * 0.034 * bw;
-    bnHeadY = bs * 0.024 * bw;                           // subtle head bob
+  let bnChestRoll = 0, bnChestX = 0, bnTorsoZ = 0, bnShL = 0, bnShR = 0;
+  let bnHeadY = 0, bnHeadX = 0, bnHeadZ = 0;
+  {
+    const sp = speed01;
+    const bw = this.clip.locomotion
+      ? 1 - w * 0.55                                     // idle 100% → full stride 45%
+      : (this.clipName === 'ko' ? 0 : 0.28);             // actions keep a live 28% (never on the KO sprawl)
+    this._weave = (this._weave || 0) + dt * (1.2 + sp * 0.4) * Math.PI * 2;
+    const s1 = Math.sin(this._weave);                    // lateral sweep of the U
+    const dip = (1 + Math.cos(this._weave * 2)) * 0.5;   // 1 at center crossing, 0 at the sides
+    bnHipX = s1 * 0.06 * bw;                             // hips sweep across
+    bnHipY = -dip * 0.065 * bw;                          // sink through the bottom of the U
+    bnHipRoll = s1 * 0.06 * bw;                          // pelvis rolls with the sway
+    bnKneeL = dip * 0.18 * (0.5 + 0.5 * s1) * bw;        // loaded-side knee gives in the dip
+    bnKneeR = dip * 0.18 * (0.5 - 0.5 * s1) * bw;
+    bnTorsoZ = s1 * 0.028 * bw;                          // torso follows the sway
+    bnChestRoll = -s1 * 0.042 * bw;                      // chest counters for balance
+    bnChestX = dip * 0.055 * bw;                         // chest pitches forward through the valley
+    bnShL = s1 * 0.038 * bw;                             // shoulders roll through the wave
+    bnShR = -s1 * 0.038 * bw;
+    bnHeadY = s1 * 0.028 * bw;                           // head leads the sweep a touch
+    bnHeadZ = -s1 * 0.045 * bw;                          // head counter-rolls to stay level — realistic
+    bnHeadX = dip * 0.05 * bw;                           // head dips through the U
   }
 
   // breathing (always on — fighters never look frozen), now on top of the groove
@@ -892,9 +903,9 @@ function apply(pose, ctx) {
     if (j === 'shoulderR') x += shR + bnShR;
     if (j === 'elbowL') x += elL;
     if (j === 'elbowR') x += elR;
-    if (j === 'torso') { x += leanX + br * 0.4; z += leanZ; }
-    if (j === 'chest') { x += br; y += sway * 0.5 + chestYaw; z += chestRoll + bnChestRoll; }
-    if (j === 'head') { y += sway + headYaw + bnHeadY; }
+    if (j === 'torso') { x += leanX + br * 0.4; z += leanZ + bnTorsoZ; }
+    if (j === 'chest') { x += br + bnChestX; y += sway * 0.5 + chestYaw; z += chestRoll + bnChestRoll; }
+    if (j === 'head') { x += bnHeadX; y += sway + headYaw + bnHeadY; z += bnHeadZ; }
 
     let s = sm[j];
     if (!s) s = sm[j] = [x, y, z];

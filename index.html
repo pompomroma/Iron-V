@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0b0e" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="description" content="IRON V — a fast 3D lock-on boxing game. Feints, guard breaks, counters and cinematic ultimates. Playable on phone and desktop." />
+  <title>IRON V — 3D Boxing</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🥊%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="css/style.css?v=15" />
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three.module.min.js?v=15" } }
+  </script>
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+
+  <div id="loading"><span>IRON V</span><em>loading…</em></div>
+
+  <!-- letterbox bars (ultimate cinematic) -->
+  <div id="letterbox-top" class="letterbox-bar"></div>
+  <div id="letterbox-bottom" class="letterbox-bar"></div>
+
+  <!-- full-screen feedback -->
+  <div id="flash"></div>
+  <div id="cine-tint"></div>
+  <div id="speedlines"></div>
+  <div id="vignette"></div>
+
+  <!-- fight HUD -->
+  <div id="hud" class="hidden">
+    <div class="hud-top">
+      <div class="hud-side left">
+        <div class="name" id="name-p1">YOU</div>
+        <div class="bars">
+          <div class="hp-bar" id="hp-p1">
+            <div class="hp-ghost" id="hp-p1-ghost"></div>
+            <div class="hp-fill" id="hp-p1-fill"></div>
+          </div>
+          <div class="st-bar"><div class="st-fill" id="st-p1-fill"></div></div>
+          <div class="gd-bar"><div class="gd-fill" id="gd-p1-fill"></div></div>
+        </div>
+        <div class="ult-pill" id="ult-p1"><div class="ult-fill" id="ult-p1-fill"></div><span>ULT</span></div>
+      </div>
+
+      <div id="score">0 – 0</div>
+
+      <div class="hud-side right">
+        <div class="name" id="name-p2">IRON-BOT</div>
+        <div class="bars">
+          <div class="hp-bar" id="hp-p2">
+            <div class="hp-ghost" id="hp-p2-ghost"></div>
+            <div class="hp-fill" id="hp-p2-fill"></div>
+          </div>
+          <div class="st-bar"><div class="st-fill" id="st-p2-fill"></div></div>
+          <div class="gd-bar"><div class="gd-fill" id="gd-p2-fill"></div></div>
+        </div>
+        <div class="ult-pill" id="ult-p2"><div class="ult-fill" id="ult-p2-fill"></div><span>ULT</span></div>
+      </div>
+    </div>
+
+    <div id="popup-side" class="popup-side"></div>
+    <div id="popup-center" class="popup-center"></div>
+    <div id="round-card"><div id="round-title"></div><div id="round-sub"></div></div>
+  </div>
+
+  <div id="fps-debug" class="hidden"></div>
+
+  <!-- mobile controls -->
+  <div id="touch-controls" class="hidden">
+    <div id="joy-zone">
+      <div id="joy-base"><div id="joy-knob"></div></div>
+    </div>
+    <div id="action-cluster">
+      <button id="btn-ult" class="tbtn ult"><i>★</i><b>ULT</b></button>
+      <button id="btn-heavy" class="tbtn heavy"><i>💥</i><b>HEAVY</b></button>
+      <button id="btn-light" class="tbtn light"><i>🥊</i><b>LIGHT</b></button>
+      <button id="btn-block" class="tbtn block"><i>🛡</i><b>BLOCK</b></button>
+      <button id="btn-dash" class="tbtn dash"><i>⚡</i><b>DASH</b></button>
+    </div>
+  </div>
+
+  <!-- title screen -->
+  <div id="title-screen">
+    <div class="title-inner">
+      <h1>IRON&nbsp;<span>V</span></h1>
+      <p class="tagline">LOCK-ON BOXING</p>
+      <div class="diff-row">
+        <button class="diff-btn" data-diff="easy">EASY</button>
+        <button class="diff-btn sel" data-diff="normal">NORMAL</button>
+        <button class="diff-btn" data-diff="hard">HARD</button>
+      </div>
+      <button id="start-btn">FIGHT</button>
+      <div class="controls-hint">
+        <div><kbd>W A S D</kbd> move</div>
+        <div><kbd>K</kbd> light&nbsp;&nbsp;<kbd>L</kbd> heavy</div>
+        <div><kbd>F</kbd> block&nbsp;&nbsp;<kbd>SPACE</kbd> dash</div>
+        <div><kbd>Q</kbd> ultimate</div>
+        <div class="hint-feint">tip: tap K then L instantly to feint-switch your punch (works both ways)</div>
+      </div>
+    </div>
+    <div id="build-tag"></div>
+  </div>
+
+  <!-- victory screen -->
+  <div id="victory-screen" class="hidden">
+    <div class="victory-inner">
+      <div id="victory-text">VICTORY</div>
+      <div id="victory-sub"></div>
+      <div class="victory-btns">
+        <button id="rematch-btn">REMATCH</button>
+        <button id="menu-btn">MENU</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js?v=15"></script>
+</body>
+</html>
